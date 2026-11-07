@@ -28,3 +28,8 @@ firmware/sdkconfig.old
 *.db
 *.sqlite
 *.sqlite3
+
+#kala
+/tmp/
+/output/
+/deliverables/
