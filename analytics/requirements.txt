@@ -1,0 +1,2 @@
+pytest
+tzdata  # time zone data, needed on Windows

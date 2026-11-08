@@ -1,0 +1,142 @@
+[
+  {
+    "entry_id": "a8ffb81c-b98a-4e5f-acbf-31fb177be9e6",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "calm",
+    "text": "Quiet day, took it slow.",
+    "created_at": "2026-10-29T19:42:00Z"
+  },
+  {
+    "entry_id": "5e3fba2a-1e0a-4b09-82b8-9fc28d4ad8fc",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "calm",
+    "text": null,
+    "created_at": "2026-10-29T20:17:00Z"
+  },
+  {
+    "entry_id": "b2e3e64b-ee8f-46ca-99e0-890fef58b690",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "tired",
+    "text": "Long day, need rest.",
+    "created_at": "2026-10-29T20:23:00Z"
+  },
+  {
+    "entry_id": "f4d62658-139b-4c16-bbca-ebdc46abfedd",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "stressed",
+    "text": null,
+    "created_at": "2026-10-30T19:49:00Z"
+  },
+  {
+    "entry_id": "0ff99d87-0d9a-49dc-8e12-80e07ca62c80",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "tired",
+    "text": null,
+    "created_at": "2026-10-30T20:06:00Z"
+  },
+  {
+    "entry_id": "e1f84798-d60b-4a74-b9f9-2ddb41db94bb",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "stressed",
+    "text": "Deadline tomorrow, feeling tense.",
+    "created_at": "2026-10-31T19:58:00Z"
+  },
+  {
+    "entry_id": "d824a59e-db33-4e63-82b9-16867126c537",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "anxious",
+    "text": null,
+    "created_at": "2026-10-31T20:22:00Z"
+  },
+  {
+    "entry_id": "b3847cd3-61a8-4b57-8b25-d84aea889978",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "anxious",
+    "text": "Worried about the exam.",
+    "created_at": "2026-10-31T20:44:00Z"
+  },
+  {
+    "entry_id": "e09dc82b-7a9a-4477-9435-46c98cf38f0c",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "tired",
+    "text": "Low energy this afternoon.",
+    "created_at": "2026-11-01T19:43:00Z"
+  },
+  {
+    "entry_id": "ac4c125f-dfa6-4479-8db6-f2ff6cf9c6fe",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "happy",
+    "text": "Good day, got a lot done.",
+    "created_at": "2026-11-01T19:44:00Z"
+  },
+  {
+    "entry_id": "0f6206f1-9403-4d3d-a8de-68aba9927ca9",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "neutral",
+    "text": "Normal day.",
+    "created_at": "2026-11-01T20:30:00Z"
+  },
+  {
+    "entry_id": "b195156b-06b1-4dd2-8028-4f5fc1d26c07",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "stressed",
+    "text": "Presentation went badly, still stressed.",
+    "created_at": "2026-11-02T19:32:00Z"
+  },
+  {
+    "entry_id": "802739e5-4da5-48e4-82a0-6460ce68210c",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "neutral",
+    "text": "Normal day.",
+    "created_at": "2026-11-02T19:34:00Z"
+  },
+  {
+    "entry_id": "47fc23f5-0201-465b-b2cf-4a9520f44d6e",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "calm",
+    "text": null,
+    "created_at": "2026-11-02T20:56:00Z"
+  },
+  {
+    "entry_id": "a1a07993-8670-4967-84a5-3e31b106441e",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "stressed",
+    "text": "Deadline tomorrow, feeling tense.",
+    "created_at": "2026-11-03T19:56:00Z"
+  },
+  {
+    "entry_id": "8f256109-b973-4cde-a1bb-9549c0ad720a",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "tired",
+    "text": "Slept badly, tired all day.",
+    "created_at": "2026-11-03T20:23:00Z"
+  },
+  {
+    "entry_id": "3c3c3182-2024-4fcf-a544-5d8cf93adb04",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "anxious",
+    "text": null,
+    "created_at": "2026-11-03T20:31:00Z"
+  },
+  {
+    "entry_id": "bd29e827-e0f2-41dc-ab55-ae42b9def348",
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "mood": "calm",
+    "text": "Relaxed, read a book tonight.",
+    "created_at": "2026-11-04T19:56:00Z"
+  },
+  {
+    "entry_id": "cf658d58-705e-4a42-82fc-ff0f80878889",
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "mood": "happy",
+    "text": "Feeling energetic after training.",
+    "created_at": "2026-11-04T20:33:00Z"
+  },
+  {
+    "entry_id": "b9eda241-9c4f-4fb0-86ef-ad71530b9b65",
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "mood": "happy",
+    "text": "Good day, got a lot done.",
+    "created_at": "2026-11-04T20:42:00Z"
+  }
+]

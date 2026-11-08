@@ -1,0 +1,20 @@
+[
+  {
+    "user_id": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+    "username": "test_user_1",
+    "device_id": "23b8c1e9-3924-46de-beb1-3b9046685257",
+    "timezone": "Europe/Amsterdam"
+  },
+  {
+    "user_id": "16419f82-8b9d-4434-a465-e150bd9c66b3",
+    "username": "test_user_2",
+    "device_id": "07a0ca6e-0822-48f3-ac03-1199972a8469",
+    "timezone": "Europe/Amsterdam"
+  },
+  {
+    "user_id": "8fadc1a6-06cb-4fb3-9a1d-e644815ef6d1",
+    "username": "test_user_3",
+    "device_id": "b38a088c-a65e-4389-b74d-0fb132e70629",
+    "timezone": "Europe/Amsterdam"
+  }
+]
