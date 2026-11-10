@@ -1,25 +1,35 @@
-#include <Adafruit_TinyUSB.h>
+//#include <Adafruit_TinyUSB.h>
 #include <bluefruit.h>
+#include <LSM6DS3.h>
+#include <Wire.h>
 
 #define SAMPLE_TIME_MS 1000
 
 unsigned long now;
 unsigned long lastTime = 0;
 
-typedef struct{
- 
-  uint32_t sequence;
-  unsigned long uptime_ms; // do i need it instead of "now" var
-  uint8_t heart_bpm;
-  bool isTest;
- 
-} Measurements;
+
+typedef struct __attribute__((__packed__)){
+
+  uint32_t sequence; //4 bytes -> number of reading 
+  uint32_t uptime_ms; //4 bytes -> timestamp 
+  uint8_t heart_bpm; //1 byte -> bpm reading
+  uint16_t accel_x; //2 bytes -> movement on the x axis
+  uint16_t accel_y; //2 bytes -> movement on the y axis
+  uint16_t accel_z; //2 bytes -> movement on the z axis
+  uint8_t batt_lvl; //1 byte -> battery percentage 
+  uint8_t flags; //1 bye -> 0 = ok, 1 = is test, 2 = error
+} Payload; //17 bytes
 
 
 //Bluetooth
 BLEUart bleuart;
 BLEDis bledis;
 BLEBas blebas;
+
+//Movement
+
+LSM6DS3 myIMU(I2C_MODE, 0x6A);
 
 
 //configure and launch the BLE advertising packets
@@ -34,7 +44,7 @@ void startAdv(void){
   //advertise the uuid of the ble uart service
   Bluefruit.Advertising.addService(bleuart);
 
-  
+
 
   //add the name to the "scan response" packet, because this way the name is only sent when another device explicitly requests it during a scan. A standard advertisment packet is only 31 bytes, so this practice makes it save space
   Bluefruit.ScanResponse.addName();
@@ -47,7 +57,7 @@ void startAdv(void){
 
   //set the timig interval between advertising chirps, fast and slow
   Bluefruit.Advertising.setInterval(32, 244); //uints of 0.625ms
-  
+
   //this makes the board advertise aggresivelly for the first 30 seconds, and then change to the slow adv interval
   Bluefruit.Advertising.setFastTimeout(30);
 
@@ -57,21 +67,28 @@ void startAdv(void){
 }
 
 
-void acquireMeasurement(Measurements *mes, uint8_t simulatedHeart){
-  
-    mes->sequence++;
-    mes->uptime_ms = millis();
-    mes->heart_bpm = simulatedHeart;
+void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
+
+  mes->sequence++;
+  mes->uptime_ms = millis();
+  mes->heart_bpm = simulatedHeart;
+
+
+  //Movement
+  mes->accel_x = myIMU.readRawAccelX();
+  mes->accel_y = myIMU.readRawAccelY();
+  mes->accel_z = myIMU.readRawAccelZ();
 
 } 
 
 
 
-Measurements stats = {0, millis(), 0 , 1};
+Payload payload;
 
 void setup() {
   Serial.begin(115200);
 
+  //Init and start  Bluetooth
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 
   Bluefruit.begin();
@@ -84,6 +101,21 @@ void setup() {
 
   startAdv();
 
+
+  //Init IMU
+// The installed Seeed library handles IMU power and Wire1.
+int imuStatus = myIMU.begin();
+
+Serial.print("IMU begin status: ");
+Serial.println(imuStatus);
+
+Wire1.beginTransmission(0x6A);
+uint8_t busStatus = Wire1.endTransmission();
+
+Serial.print("IMU I2C status: ");
+Serial.println(busStatus);
+
+payload.flags = (imuStatus == 0) ? 0 : 2; 
 }
 
 void loop() {
@@ -96,21 +128,44 @@ void loop() {
     now = millis();
     lastTime = now;
 
+    if(simulatedHeart >= 180)
+      simulatedHeart = 40;
+
     simulatedHeart++;
 
-    acquireMeasurement(&stats, simulatedHeart);
+    acquireMeasurement(&payload, simulatedHeart);
 
-    Serial.print("Seq: ");
-    Serial.println(stats.sequence);
+    // Print to Serial Monitor for local debugging
+    Serial.print("Seq: ");        Serial.println(payload.sequence);
+    Serial.print("Flags: ");      Serial.println(payload.flags);
+    Serial.print("uptime_ms: ");  Serial.println(payload.uptime_ms);
+    Serial.print("Heart rate: "); Serial.println(payload.heart_bpm);
+    Serial.print("Accel X: ");    Serial.println(payload.accel_x);
+    Serial.print("Accel Y: ");    Serial.println(payload.accel_y);
+    Serial.print("Accel Z: ");    Serial.println(payload.accel_z);
+    Serial.println("-----------------------");
 
-    Serial.print("isTest: ");
-    Serial.println(stats.isTest);
 
-    Serial.print("uptime_ms: ");
-    Serial.println(stats.uptime_ms);
+    if(Bluefruit.connected()){
 
-    Serial.print("Heart rate: ");
-    Serial.println(stats.heart_bpm);
+      bleuart.write((uint8_t*)&payload, sizeof(payload)); //cast the addres of stats to a uint8_t pointer
+      Serial.println("Data sent over BLE!");
+
+    }
+
+
+    while(bleuart.available()){
+
+      char ch = (char)bleuart.read();
+
+      if (ch == 't' || ch == 'T') {
+        payload.flags = !payload.flags;
+        Serial.print("isTest toggled via BLE to: ");
+        Serial.println(payload.flags);
+      }
+
+    }
+
   }
 
 }
