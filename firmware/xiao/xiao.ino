@@ -4,6 +4,7 @@
 #include <Wire.h>
 
 #include <MAX30105.h>
+#include "heartRate.h" //algorithm library for checkForBeat()
 
 MAX30105 particleSensor;
 
@@ -23,19 +24,34 @@ unsigned long now;
 unsigned long lastTime = 0;
 
 
-typedef struct __attribute__((__packed__)){
+typedef struct __attribute__((__packed__)){//this is so that the compiler doesnt add any padding bytes
 
+  uint16_t device_id; //2 bytes -> id of the bracelet (can be 1 byte if not enough space)
   uint32_t sequence; //4 bytes -> number of reading 
   uint32_t uptime_ms; //4 bytes -> timestamp 
   uint8_t heart_bpm; //1 byte -> bpm reading
-                     // uint16_t accel_x; //2 bytes -> movement on the x axis
-                     // uint16_t accel_y; //2 bytes -> movement on the y axis
-                     // uint16_t accel_z; //2 bytes -> movement on the z axis
+  uint32_t heart_lastBeat;// 4 bytes -> time of the last heartbeat
+  long heart_IrValue; //4 bytes
+  long heart_redValue;//4 bytes
   uint8_t batt_lvl; //1 byte -> battery percentage 
-  uint8_t flags; //1 bye -> 0 = ok, 1 = is test, 2 = BLE error, 3 = MAX sensor error
-} Payload; //17 bytes - 6 bytes = 11 bytes
+  uint8_t isTest; //1 byte -> test flag, simulated readings
+  uint8_t flags; //1 bye -> 0 = ok, 1 = BlE Error, 2 =MAX Sensor error, 3 = other error
+} Payload; //26 bytes
 
 Payload payload;
+
+
+typedef struct {
+
+  float beatsPerMinute;
+  unsigned long lastBeat;
+
+  long irValue;
+  long redValue;
+
+} HeartMeasurements;
+
+HeartMeasurements heart_mes;
 
 //Bluetooth
 BLEUart bleuart;
@@ -77,7 +93,7 @@ void startAdv(void){
 }
 
 
-uint8_t readBatteryPercent(){
+uint8_t readBatteryPercentage(){
 
   uint32_t total = 0;
 
@@ -91,7 +107,7 @@ uint8_t readBatteryPercent(){
 
   // Undo the XIAO's 1 MΩ / 510 kΩ voltage divider.
   float voltage = raw * (3.0f / 4096.0f) * ((1000.0f / 510.0f) / 510.0f);
-  
+
   //rough estimate for 3.7v LiPo
   float percent = (voltage - 3.3f) * 100.0f / (4.2f - 3.3f);
 
@@ -103,19 +119,53 @@ uint8_t readBatteryPercent(){
 }
 
 
-void getHeartRate(){
+void getHeart(HeartMeasurements *heart_mes){
 
+  static float beatsPerMinute = 40;
+
+#if SIMULATE_SENSOR
+  if(beatsPerMinute >= 180)
+    beatsPerMinute = 40;
+
+  beatsPerMinute++;
+
+#else
+
+  heart_mes->irValue = particleSensor.getIR();
+  heart_mes->redValue = particleSensor.getRed();
+
+  if(checkForBeat(heart_mes->irValue) == true){
+
+    long delta = millis() - heart_mes->lastBeat;
+    heart_mes->lastBeat = millis();
+
+    beatsPerMinute = 60 / (delta / 1000.0);
   
+  }
+
+
+#endif
+
+    if(beatsPerMinute <= 255 && beatsPerMinute > 20){
+
+      heart_mes->beatsPerMinute = beatsPerMinute;
+
+    }
 
 }
 
 
-void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
+void acquireMeasurement(Payload *payload, HeartMeasurements *heart_mes){
 
-  mes->sequence++;
-  mes->uptime_ms = millis();
-  mes->heart_bpm = simulatedHeart;
-  mes->batt_lvl = readBatteryPercent();
+  getHeart(heart_mes);
+
+  payload->sequence++;
+  payload->uptime_ms = millis();
+  payload->heart_bpm = heart_mes->beatsPerMinute;
+  payload->heart_IrValue = heart_mes->irValue;
+  payload->heart_redValue = heart_mes->redValue;
+  payload->heart_lastBeat = heart_mes->lastBeat;
+  payload->batt_lvl = readBatteryPercentage();
 
 
 } 
@@ -123,8 +173,16 @@ void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
 
 void setup() {
 
-  //test mode rn
-  payload.flags = 1;
+  //TEST MODE
+  payload.isTest = 1;
+
+
+  // unique id coming from the chip's serial number
+  payload.device_id = (uint16_t)(NRF_FICR->DEVICEID[0] >> 16);// >>16 keeps the upper half, because the lower half might be similar/same for the chips and casts as a 16bit because this is the size
+
+  //start with no errors
+  payload.flags = 0;
+
 
 
   //battery reading setup
@@ -143,26 +201,27 @@ void setup() {
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 
   if(Bluefruit.begin() == false){
-    payload.flags = 2;
-  }else{
-    payload.flags = 0;
+    payload.flags = 1;
+  }else {
+    Bluefruit.setTxPower(4);
+    Bluefruit.setName("XIAO BLE");
+
+    bledis.begin();
+    blebas.begin();
+    bleuart.begin();
+
+    startAdv();
+
   }
 
-  Bluefruit.setTxPower(4);
-  Bluefruit.setName("XIAO BLE");
-
-  bledis.begin();
-  blebas.begin();
-  bleuart.begin();
-
-  startAdv();
 
 
   //MAX30102 Init and Start
   if(particleSensor.begin() == false){
-    payload.flags = 3;
+    payload.flags = 2;
+  }else {
+    particleSensor.setup();
   }
-
 
 
 }
@@ -171,18 +230,12 @@ void loop() {
 
   now = millis();
 
-  static uint8_t simulatedHeart = 40;
   if(now - lastTime >= SAMPLE_TIME_MS){
 
     now = millis();
     lastTime = now;
 
-    if(simulatedHeart >= 180)
-      simulatedHeart = 40;
-
-    simulatedHeart++;
-
-    acquireMeasurement(&payload, simulatedHeart);
+    acquireMeasurement(&payload, &heart_mes);
 
     // Print to Serial Monitor for local debugging
     Serial.print("Seq: ");        Serial.println(payload.sequence);
