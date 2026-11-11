@@ -3,7 +3,21 @@
 #include <LSM6DS3.h>
 #include <Wire.h>
 
+#include <MAX30105.h>
+
+MAX30105 particleSensor;
+
 #define SAMPLE_TIME_MS 1000
+
+#define SIMULATE_SENSOR true
+
+
+
+//---------------------------
+//im using the xiao nrf52840, not the nrf52840 Sense,
+//so it doesnt have the built in mic and built in IMU.
+//for the sensor, im using the MAX30102 breakout board
+//--------------------------
 
 unsigned long now;
 unsigned long lastTime = 0;
@@ -18,7 +32,7 @@ typedef struct __attribute__((__packed__)){
                      // uint16_t accel_y; //2 bytes -> movement on the y axis
                      // uint16_t accel_z; //2 bytes -> movement on the z axis
   uint8_t batt_lvl; //1 byte -> battery percentage 
-  uint8_t flags; //1 bye -> 0 = ok, 1 = is test, 2 = error
+  uint8_t flags; //1 bye -> 0 = ok, 1 = is test, 2 = BLE error, 3 = MAX sensor error
 } Payload; //17 bytes - 6 bytes = 11 bytes
 
 Payload payload;
@@ -89,6 +103,13 @@ uint8_t readBatteryPercent(){
 }
 
 
+void getHeartRate(){
+
+  
+
+}
+
+
 void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
 
   mes->sequence++;
@@ -102,6 +123,10 @@ void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
 
 void setup() {
 
+  //test mode rn
+  payload.flags = 1;
+
+
   //battery reading setup
   pinMode(VBAT_ENABLE, OUTPUT); //enable voltage divider
   digitalWrite(VBAT_ENABLE, LOW);
@@ -111,12 +136,18 @@ void setup() {
   delay(10);
 
 
+  //Serial communication
   Serial.begin(115200);
 
   //Init and start  Bluetooth
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 
-  Bluefruit.begin();
+  if(Bluefruit.begin() == false){
+    payload.flags = 2;
+  }else{
+    payload.flags = 0;
+  }
+
   Bluefruit.setTxPower(4);
   Bluefruit.setName("XIAO BLE");
 
@@ -124,9 +155,15 @@ void setup() {
   blebas.begin();
   bleuart.begin();
 
-  payload.flags = 1;
-
   startAdv();
+
+
+  //MAX30102 Init and Start
+  if(particleSensor.begin() == false){
+    payload.flags = 3;
+  }
+
+
 
 }
 
