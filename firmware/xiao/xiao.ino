@@ -14,22 +14,19 @@ typedef struct __attribute__((__packed__)){
   uint32_t sequence; //4 bytes -> number of reading 
   uint32_t uptime_ms; //4 bytes -> timestamp 
   uint8_t heart_bpm; //1 byte -> bpm reading
-  uint16_t accel_x; //2 bytes -> movement on the x axis
-  uint16_t accel_y; //2 bytes -> movement on the y axis
-  uint16_t accel_z; //2 bytes -> movement on the z axis
+                     // uint16_t accel_x; //2 bytes -> movement on the x axis
+                     // uint16_t accel_y; //2 bytes -> movement on the y axis
+                     // uint16_t accel_z; //2 bytes -> movement on the z axis
   uint8_t batt_lvl; //1 byte -> battery percentage 
   uint8_t flags; //1 bye -> 0 = ok, 1 = is test, 2 = error
-} Payload; //17 bytes
+} Payload; //17 bytes - 6 bytes = 11 bytes
 
+Payload payload;
 
 //Bluetooth
 BLEUart bleuart;
 BLEDis bledis;
 BLEBas blebas;
-
-//Movement
-
-LSM6DS3 myIMU(I2C_MODE, 0x6A);
 
 
 //configure and launch the BLE advertising packets
@@ -51,7 +48,6 @@ void startAdv(void){
 
 
 
-
   //configures automatic rebroadcasting
   Bluefruit.Advertising.restartOnDisconnect(true);
 
@@ -67,25 +63,54 @@ void startAdv(void){
 }
 
 
+uint8_t readBatteryPercent(){
+
+  uint32_t total = 0;
+
+  analogRead(PIN_VBAT); //it is suggested to discard the first reading
+
+  for(int i = 0; i < 16; i++){// get 16 readings to average them to reduce noise
+    total += analogRead(PIN_VBAT);
+  }
+
+  float raw = total / 16.0f; //get the average
+
+  // Undo the XIAO's 1 MΩ / 510 kΩ voltage divider.
+  float voltage = raw * (3.0f / 4096.0f) * ((1000.0f / 510.0f) / 510.0f);
+  
+  //rough estimate for 3.7v LiPo
+  float percent = (voltage - 3.3f) * 100.0f / (4.2f - 3.3f);
+
+  //convert to %
+  percent = constrain(percent, 0.0f, 100.0f);
+
+  return (uint8_t)(percent + 0.5f); //why the +0.5f?
+
+}
+
+
 void acquireMeasurement(Payload *mes, uint8_t simulatedHeart){
 
   mes->sequence++;
   mes->uptime_ms = millis();
   mes->heart_bpm = simulatedHeart;
+  mes->batt_lvl = readBatteryPercent();
 
-
-  //Movement
-  mes->accel_x = myIMU.readRawAccelX();
-  mes->accel_y = myIMU.readRawAccelY();
-  mes->accel_z = myIMU.readRawAccelZ();
 
 } 
 
 
-
-Payload payload;
-
 void setup() {
+
+  //battery reading setup
+  pinMode(VBAT_ENABLE, OUTPUT); //enable voltage divider
+  digitalWrite(VBAT_ENABLE, LOW);
+
+  analogReference(AR_INTERNAL_3_0); // ADC range: 0–3.0 V
+  analogReadResolution(12);        // 4096 ADC steps
+  delay(10);
+
+
   Serial.begin(115200);
 
   //Init and start  Bluetooth
@@ -99,23 +124,10 @@ void setup() {
   blebas.begin();
   bleuart.begin();
 
+  payload.flags = 1;
+
   startAdv();
 
-
-  //Init IMU
-// The installed Seeed library handles IMU power and Wire1.
-int imuStatus = myIMU.begin();
-
-Serial.print("IMU begin status: ");
-Serial.println(imuStatus);
-
-Wire1.beginTransmission(0x6A);
-uint8_t busStatus = Wire1.endTransmission();
-
-Serial.print("IMU I2C status: ");
-Serial.println(busStatus);
-
-payload.flags = (imuStatus == 0) ? 0 : 2; 
 }
 
 void loop() {
@@ -140,9 +152,7 @@ void loop() {
     Serial.print("Flags: ");      Serial.println(payload.flags);
     Serial.print("uptime_ms: ");  Serial.println(payload.uptime_ms);
     Serial.print("Heart rate: "); Serial.println(payload.heart_bpm);
-    Serial.print("Accel X: ");    Serial.println(payload.accel_x);
-    Serial.print("Accel Y: ");    Serial.println(payload.accel_y);
-    Serial.print("Accel Z: ");    Serial.println(payload.accel_z);
+    Serial.print("Battery: "); Serial.print(payload.batt_lvl); Serial.println("%");
     Serial.println("-----------------------");
 
 
@@ -158,11 +168,11 @@ void loop() {
 
       char ch = (char)bleuart.read();
 
-      if (ch == 't' || ch == 'T') {
-        payload.flags = !payload.flags;
-        Serial.print("isTest toggled via BLE to: ");
-        Serial.println(payload.flags);
-      }
+      /*  if (ch == 't' || ch == 'T') {
+          payload.flags = !payload.flags;
+          Serial.print("isTest toggled via BLE to: ");
+          Serial.println(payload.flags);
+          }*/
 
     }
 
