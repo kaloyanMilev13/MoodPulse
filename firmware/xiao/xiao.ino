@@ -35,7 +35,8 @@ typedef struct __attribute__((__packed__)){//this is so that the compiler doesnt
   long heart_redValue;//4 bytes
   uint8_t batt_lvl; //1 byte -> battery percentage 
   uint8_t isTest; //1 byte -> test flag, simulated readings
-  uint8_t flags; //1 bye -> 0 = ok, 1 = BlE Error, 2 =MAX Sensor error, 3 = other error
+  uint8_t flags; //1 bye -> 0 = ok, 1 = BlE Error, 2 = MAX Sensor error, 3 = other error
+
 } Payload; //26 bytes
 
 Payload payload;
@@ -140,17 +141,17 @@ void getHeart(HeartMeasurements *heart_mes){
     heart_mes->lastBeat = millis();
 
     beatsPerMinute = 60 / (delta / 1000.0);
-  
+
   }
 
 
 #endif
 
-    if(beatsPerMinute <= 255 && beatsPerMinute > 20){
+  if(beatsPerMinute <= 255 && beatsPerMinute > 20){
 
-      heart_mes->beatsPerMinute = beatsPerMinute;
+    heart_mes->beatsPerMinute = beatsPerMinute;
 
-    }
+  }
 
 }
 
@@ -184,7 +185,6 @@ void setup() {
   payload.flags = 0;
 
 
-
   //battery reading setup
   pinMode(VBAT_ENABLE, OUTPUT); //enable voltage divider
   digitalWrite(VBAT_ENABLE, LOW);
@@ -215,13 +215,14 @@ void setup() {
   }
 
 
-
+#if !SIMULATE_SENSOR
   //MAX30102 Init and Start
   if(particleSensor.begin() == false){
     payload.flags = 2;
   }else {
     particleSensor.setup();
   }
+#endif
 
 
 }
@@ -238,12 +239,64 @@ void loop() {
     acquireMeasurement(&payload, &heart_mes);
 
     // Print to Serial Monitor for local debugging
-    Serial.print("Seq: ");        Serial.println(payload.sequence);
-    Serial.print("Flags: ");      Serial.println(payload.flags);
-    Serial.print("uptime_ms: ");  Serial.println(payload.uptime_ms);
-    Serial.print("Heart rate: "); Serial.println(payload.heart_bpm);
-    Serial.print("Battery: "); Serial.print(payload.batt_lvl); Serial.println("%");
-    Serial.println("-----------------------");
+    Serial.println();
+    Serial.println(F("========== MoodPulse payload =========="));
+
+    Serial.print(F("Device ID:       "));
+    Serial.print(payload.device_id);
+    Serial.print(F(" (0x"));
+    Serial.print(payload.device_id, HEX);
+    Serial.println(F(")"));
+
+    Serial.print(F("Sequence:        "));
+    Serial.println(payload.sequence);
+
+    Serial.print(F("Uptime:          "));
+    Serial.print(payload.uptime_ms);
+    Serial.println(F(" ms"));
+
+    Serial.print(F("Heart rate:      "));
+    Serial.print(payload.heart_bpm);
+    Serial.println(F(" BPM"));
+
+    Serial.print(F("Last beat time:  "));
+    Serial.print(payload.heart_lastBeat);
+    Serial.println(F(" ms since boot"));
+
+    Serial.print(F("IR reading:      "));
+    Serial.println(payload.heart_IrValue);
+
+    Serial.print(F("Red reading:     "));
+    Serial.println(payload.heart_redValue);
+
+    Serial.print(F("Battery:         "));
+    Serial.print(payload.batt_lvl);
+    Serial.println(F("%"));
+
+    Serial.print(F("Test flag:       "));
+    Serial.print(payload.isTest);
+    Serial.println(payload.isTest ? F(" (test)") : F(" (live)"));
+
+    Serial.print(F("Status flag:     "));
+    Serial.print(payload.flags);
+    Serial.print(F(" ("));
+    switch (payload.flags) {
+      case 0:  Serial.print(F("OK"));               break;
+      case 1:  Serial.print(F("BLE error"));        break;
+      case 2:  Serial.print(F("MAX30102 error"));   break;
+      case 3:  Serial.print(F("Other error"));      break;
+      default: Serial.print(F("Unknown"));          break;
+    }
+    Serial.println(F(")"));
+
+    Serial.print(F("BLE connected:   "));
+    Serial.println(Bluefruit.connected() ? F("yes") : F("no"));
+
+    Serial.print(F("Payload size:    "));
+    Serial.print(sizeof(payload));
+    Serial.println(F(" bytes"));
+
+    Serial.println(F("======================================="));
 
 
     if(Bluefruit.connected()){
