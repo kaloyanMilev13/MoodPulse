@@ -1,0 +1,1797 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoodPulse | Your Daily Check-In</title>
+
+<style>
+:root {
+  --bg: #0b0e0c;
+  --sidebar: #101511;
+  --card: #171e18;
+  --card2: #1c271e;
+  --green: #baff75;
+  --green2: #83ec59;
+  --text: #f1f7f0;
+  --muted: #a0afa1;
+  --border: #2c3a2e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+}
+
+button, textarea, select {
+  font: inherit;
+}
+
+button { cursor: pointer; }
+
+button:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 250px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 28px 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 38px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+}
+
+.logo-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--green);
+  color: #102011;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.logo h2 {
+  font-size: 22px;
+  letter-spacing: -1px;
+  margin: 0;
+}
+
+.logo small { color: var(--muted); }
+
+.nav-title {
+  color: #778878;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  padding: 0 13px;
+  margin-bottom: 12px;
+}
+
+.nav {
+  display: grid;
+  gap: 6px;
+}
+
+.nav button {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 12px;
+  text-align: left;
+  transition: 0.2s;
+}
+
+.nav button:hover {
+  background: #1b281d;
+  color: white;
+}
+
+.nav button.active {
+  background: #213022;
+  border-color: #344f36;
+  color: var(--green);
+  font-weight: 650;
+}
+
+.nav button span { margin-right: 12px; }
+
+.sidebar-bottom {
+  margin-top: auto;
+  border: 1px solid var(--border);
+  background: #19231a;
+  border-radius: 16px;
+  padding: 17px;
+}
+
+.sidebar-bottom strong { color: var(--green); }
+
+.sidebar-bottom p {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+
+/* MAIN LAYOUT */
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar {
+  height: 75px;
+  padding: 0 6%;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.breadcrumb { color: var(--muted); }
+.breadcrumb strong { color: white; }
+
+.demo-badge {
+  color: var(--green);
+  background: #1d2b1e;
+  border: 1px solid #3c593d;
+  border-radius: 30px;
+  padding: 8px 13px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.content {
+  max-width: 1250px;
+  margin: auto;
+  padding: 46px 6% 90px;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+.eyebrow {
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 13px;
+}
+
+h1 {
+  font-size: clamp(34px, 4.5vw, 54px);
+  letter-spacing: -2px;
+  line-height: 1.12;
+  margin: 0 0 15px;
+}
+
+h1 em {
+  font-style: normal;
+  color: var(--green);
+}
+
+.subtitle {
+  color: var(--muted);
+  line-height: 1.8;
+  font-size: 15px;
+  max-width: 650px;
+  margin-bottom: 32px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 20px;
+}
+
+.stack {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.card {
+  background: linear-gradient(145deg, #1b261c, #141a15);
+  border: 1px solid var(--border);
+  padding: 26px;
+  border-radius: 21px;
+}
+
+.card h2 {
+  font-size: 19px;
+  margin: 0 0 12px;
+  letter-spacing: -.5px;
+}
+
+.card-label {
+  font-size: 10px;
+  color: #809182;
+  letter-spacing: 1.7px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.card-description {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 13px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 { margin: 0; }
+
+.mood-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 9px;
+  margin: 22px 0;
+}
+
+.mood {
+  background: #1b251c;
+  border: 1px solid #39483b;
+  border-radius: 15px;
+  min-height: 105px;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: 0.2s;
+}
+
+.mood:hover {
+  transform: translateY(-3px);
+  border-color: var(--green);
+}
+
+.mood.selected {
+  border-color: var(--green);
+  background: #304832;
+  box-shadow: 0 0 20px #baff7510;
+}
+
+.emoji { font-size: 28px; }
+
+label {
+  display: block;
+  color: #dceadd;
+  font-weight: 600;
+  margin: 18px 0 9px;
+}
+
+textarea, select {
+  width: 100%;
+  background: #0f1511;
+  border: 1px solid #38483b;
+  color: white;
+  border-radius: 13px;
+  padding: 15px;
+}
+
+textarea {
+  min-height: 115px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+textarea::placeholder { color: #718174; }
+
+.btn {
+  border: 1px solid var(--border);
+  padding: 12px 17px;
+  border-radius: 11px;
+  background: #253527;
+  color: var(--text);
+  font-weight: 650;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  background: #334735;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #102011;
+  border-color: var(--green);
+}
+
+.btn-primary:hover { background: #d0ffa1; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+}
+
+.form-footer {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+
+.success {
+  color: var(--green);
+  font-size: 12px;
+  margin-top: 12px;
+  min-height: 18px;
+}
+
+/* DASHBOARD STATISTICS */
+.hero-stat {
+  background:
+    radial-gradient(circle at 100% 0%,
+      #86d76b35, transparent 55%),
+    linear-gradient(145deg, #223223, #101811);
+}
+
+.big-number {
+  color: var(--green);
+  font-size: 54px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  margin: 20px 0 0;
+}
+
+.chart {
+  height: 160px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  align-items: end;
+  margin-top: 20px;
+}
+
+.chart-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-track {
+  background: #253327;
+  width: 30px;
+  max-width: 100%;
+  height: 125px;
+  border-radius: 9px;
+  display: flex;
+  align-items: end;
+  overflow: hidden;
+}
+
+.chart-fill {
+  width: 100%;
+  background: linear-gradient(0deg, #649d4a, var(--green));
+  border-radius: 9px;
+}
+
+.chart-column small { color: var(--muted); }
+
+.tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.tip-icon {
+  background: #30472d;
+  color: var(--green);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  flex-shrink: 0;
+}
+
+.tip p {
+  color: var(--muted);
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+
+/* JOURNAL */
+.entry {
+  background: #151e17;
+  border: 1px solid var(--border);
+  padding: 18px;
+  border-radius: 15px;
+  margin-bottom: 11px;
+}
+
+.entry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entry-header strong { font-size: 13px; }
+
+.entry-date {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.entry p {
+  color: #b8c6b9;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0 0;
+}
+
+.sample-badge {
+  font-size: 9px;
+  color: var(--green);
+  border: 1px solid #496047;
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+.journal-layout {
+  display: grid;
+  grid-template-columns: 1fr 0.85fr;
+  gap: 20px;
+}
+
+.journal-history {
+  max-height: 650px;
+  overflow-y: auto;
+}
+
+.text-link {
+  color: var(--green);
+  border: none;
+  background: transparent;
+  font-weight: 600;
+}
+
+.text-link:hover { text-decoration: underline; }
+
+/* FACE PREVIEW */
+.scanner-video {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 4 / 3;
+  margin: 20px auto;
+  border: 1px solid #638563;
+  border-radius: 15px;
+  background: #080b08;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.scanner-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.scanner-result {
+  margin-top: 25px;
+  background: #111c13;
+  border: 1px solid #38513a;
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.scanner-result strong {
+  color: var(--green);
+  font-size: 16px;
+}
+
+/* INSIGHTS */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  padding: 23px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: #171f18;
+}
+
+.stat strong {
+  display: block;
+  font-size: 30px;
+  color: var(--green);
+  margin-top: 8px;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 75px 1fr 25px;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.distribution-track {
+  background: #29382b;
+  height: 9px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.distribution-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #639e4a, var(--green));
+  border-radius: 20px;
+}
+
+.disclaimer {
+  margin-top: 35px;
+  color: #7b8b7d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.toast {
+  position: fixed;
+  right: 25px;
+  bottom: 25px;
+  background: #263b26;
+  color: var(--green);
+  border: 1px solid #5b8e53;
+  padding: 14px 20px;
+  border-radius: 12px;
+  display: none;
+  z-index: 100;
+}
+
+/* MOBILE */
+@media (max-width: 1000px) {
+  .grid, .journal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app { display: block; }
+  .sidebar {
+    width: 100%;
+    position: static;
+    height: auto;
+    padding: 18px;
+    gap: 18px;
+  }
+  .nav {
+    display: flex;
+    overflow-x: auto;
+  }
+  .nav button {
+    white-space: nowrap;
+    width: auto;
+  }
+  .sidebar-bottom { display: none; }
+  .content { padding: 30px 18px; }
+  .topbar { padding: 0 18px; }
+  .stats { grid-template-columns: 1fr; }
+  .card { padding: 20px; }
+  .mood-options { gap: 5px; }
+  .mood {
+    min-height: 85px;
+    font-size: 11px;
+    gap: 7px;
+  }
+  .emoji { font-size: 23px; }
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="logo">
+      <div class="logo-icon">∿</div>
+      <div>
+        <h2>MoodPulse<span style="color:var(--green)">.</span></h2>
+        <small>A space for your mind</small>
+      </div>
+    </div>
+
+    <div>
+      <div class="nav-title">YOUR SPACE</div>
+
+      <nav class="nav">
+        <button class="active" onclick="showPage('overview', this)">
+          <span>▦</span> Overview
+        </button>
+
+        <button onclick="showPage('journal', this)">
+          <span>▤</span> Mood journal
+        </button>
+
+        <button onclick="showPage('scanner', this)">
+          <span>◎</span> Face preview
+        </button>
+
+        <button onclick="showPage('insights', this)">
+          <span>◫</span> Insights
+        </button>
+
+        <button onclick="showPage('advisor', this)">
+          <span>✦</span> AI wellbeing advisor
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-bottom">
+      <strong>MoodPulse Prototype</strong>
+      <p>
+        Your personal wellness companion.
+        A simple demonstration of the final app concept.
+      </p>
+      <small class="muted">Team Demo · Version 1.1</small>
+    </div>
+
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="breadcrumb">
+        MoodPulse / <strong id="pageName">Overview</strong>
+      </div>
+
+      <span class="demo-badge">● LIVE + LOCAL DATA</span>
+    </header>
+
+    <div class="content">
+
+      <!-- OVERVIEW PAGE -->
+      <section class="page active" id="overview">
+
+        <div class="eyebrow">Your daily space</div>
+
+        <h1>How are you feeling <em>today?</em></h1>
+
+        <p class="subtitle">
+          A little check-in can go a long way.
+          Take a moment to reflect, notice patterns,
+          and make room for yourself.
+        </p>
+
+        <div class="grid">
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="card-label">01 / DAILY CHECK-IN</div>
+              <h2>Let's check in with you</h2>
+              <p class="card-description">
+                Choose the feeling that best describes your day.
+              </p>
+
+              <div class="mood-options">
+
+                <button class="mood" data-mood="Great">
+                  <span class="emoji">😄</span> Great
+                </button>
+
+                <button class="mood" data-mood="Good">
+                  <span class="emoji">🙂</span> Good
+                </button>
+
+                <button class="mood" data-mood="Okay">
+                  <span class="emoji">😐</span> Okay
+                </button>
+
+                <button class="mood" data-mood="Low">
+                  <span class="emoji">😔</span> Low
+                </button>
+
+                <button class="mood" data-mood="Anxious">
+                  <span class="emoji">😟</span> Anxious
+                </button>
+
+              </div>
+
+              <label for="quickNote">
+                Want to add a note? <span class="muted">(optional)</span>
+              </label>
+
+              <textarea id="quickNote"
+                placeholder="What's been on your mind today?"></textarea>
+
+              <div class="form-footer">
+                <small class="muted">
+                  Your reflections stay in this browser.
+                </small>
+
+                <button class="btn btn-primary" onclick="saveCheckin()">
+                  Save check-in →
+                </button>
+              </div>
+
+              <div class="success" id="quickStatus"></div>
+            </div>
+
+            <div class="card">
+              <div class="section-heading">
+                <div>
+                  <div class="card-label">YOUR REFLECTIONS</div>
+                  <h2>Recent check-ins</h2>
+                </div>
+
+                <button class="text-link" onclick="goTo('journal')">
+                  View journal ↗
+                </button>
+              </div>
+
+              <div id="recentEntries"></div>
+            </div>
+
+          </div>
+
+          <div class="stack">
+
+            <div class="card hero-stat">
+              <div class="card-label">YOUR MOMENTS MATTER</div>
+              <h2>Keep showing up<br>for yourself.</h2>
+
+              <div class="big-number" id="checkinCount">0</div>
+              <div class="muted small">check-ins recorded</div>
+
+              <p style="margin-top:25px;color:var(--green)">
+                ✦ Small steps, meaningful progress.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">LAST 7 DAYS</div>
+              <h2>Your mood at a glance</h2>
+
+              <div class="chart" id="overviewChart"></div>
+
+              <p class="muted small">
+                Based on your self-reported check-ins · Scale 1–5
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+                <div>
+                  <div class="card-label">A SMALL REMINDER</div>
+                  <h2>Something to try today</h2>
+                  <p id="overviewTip"></p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <p class="disclaimer">
+          MoodPulse is a concept demonstration, not a medical or
+          mental-health diagnosis. Sample entries are labeled.
+        </p>
+
+      </section>
+
+      <!-- MOOD JOURNAL PAGE -->
+      <section class="page" id="journal">
+
+        <div class="eyebrow">A place to reflect</div>
+        <h1>Your mood <em>journal.</em></h1>
+
+        <p class="subtitle">
+          Write about what you feel, big or small.
+          There's no right way to check in.
+        </p>
+
+        <div class="journal-layout">
+
+          <div class="card">
+            <div class="card-label">NEW ENTRY</div>
+            <h2>What's on your mind?</h2>
+
+            <label for="journalMood">How are you feeling?</label>
+
+            <select id="journalMood">
+              <option>Great</option>
+              <option>Good</option>
+              <option selected>Okay</option>
+              <option>Low</option>
+              <option>Anxious</option>
+            </select>
+
+            <label for="journalText">Write your thoughts</label>
+
+            <textarea
+              id="journalText"
+              style="min-height:220px"
+              placeholder="Today I felt..."></textarea>
+
+            <div class="form-footer">
+              <small class="muted">
+                Entries are saved only on this device.
+              </small>
+
+              <button class="btn btn-primary" onclick="saveJournal()">
+                Save entry →
+              </button>
+            </div>
+
+            <div class="success" id="journalStatus"></div>
+
+            <hr style="border:0;border-top:1px solid var(--border);margin:28px 0">
+
+            <div class="card-label">NEED SOME INSPIRATION?</div>
+
+            <p class="card-description">
+              What made you smile today? What challenged you?
+              What's one thing you're grateful for?
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="section-heading">
+              <div>
+                <div class="card-label">YOUR TIMELINE</div>
+                <h2>Past reflections</h2>
+              </div>
+              <span class="muted small" id="journalCount"></span>
+            </div>
+
+            <div class="journal-history" id="allEntries"></div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- FACE SCANNER -->
+      <section class="page" id="scanner">
+
+        <div class="eyebrow">Live backend integration</div>
+        <h1>Expression <em>scanner.</em></h1>
+
+        <p class="subtitle">
+          Start a camera session to send frames to the face-analysis service.
+          Camera results are kept separate from your self-reported journal.
+        </p>
+
+        <div class="grid">
+
+          <div class="card" style="text-align:center">
+            <div class="card-label">LIVE CAMERA · FLASK FACE ANALYSIS</div>
+            <video id="scanner-video" class="scanner-video" autoplay playsinline muted
+              aria-label="Live camera preview for facial expression analysis"></video>
+            <canvas id="scanner-canvas" width="640" height="480" hidden></canvas>
+
+            <div class="scanner-controls">
+              <button id="start-scanner-btn" class="btn btn-primary" onclick="startScanner()">
+                Start camera session
+              </button>
+              <button id="stop-scanner-btn" class="btn btn-secondary" onclick="stopScanner()" disabled>
+                Stop camera session
+              </button>
+            </div>
+
+            <div class="scanner-result">
+              <strong id="scanLabel" aria-live="polite">Camera stopped</strong>
+              <p class="muted small" id="scanDescription" role="status">
+                Start a session to enable live analysis. Camera access requires localhost or HTTPS.
+              </p>
+            </div>
+          </div>
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="card-label">HOW IT FITS TOGETHER</div>
+              <h2>The final app concept</h2>
+
+              <p class="card-description">
+                1. Your browser captures a camera frame.
+              </p>
+              <p class="card-description">
+                2. Flask sends the frame to the expression model.
+              </p>
+              <p class="card-description">
+                3. The result and session summary appear here and in Insights.
+              </p>
+              <p class="card-description">
+                Your camera data is not added to your self-reported check-ins.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">BRACELET</div>
+              <h2>Sensor readings</h2>
+              <p class="card-description">
+                Connect your bracelet to send heart-rate readings to the backend.
+              </p>
+              <div class="scanner-controls">
+                <button id="connect-bracelet" class="btn btn-primary" type="button">Connect bracelet</button>
+                <button id="disconnect-bracelet" class="btn btn-secondary" type="button" disabled>Disconnect</button>
+              </div>
+              <div class="scanner-controls" style="margin-top:10px">
+                <button id="start-bracelet-btn" class="btn btn-primary" type="button" disabled>Start readings</button>
+                <button id="stop-bracelet-btn" class="btn btn-secondary" type="button" disabled>Stop readings</button>
+              </div>
+              <label class="small">
+                <input id="allow-bracelet-test" type="checkbox">
+                Allow simulated bracelet readings
+              </label>
+              <p id="bracelet-status" class="small" role="status" aria-live="polite">
+                Bracelet disconnected.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+                <div>
+                  <h2>Designed with care</h2>
+                  <p>
+                    Facial expressions don't always reveal
+                    someone's true emotions, so treat this model
+                    output as an estimate rather than a diagnosis.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- INSIGHTS PAGE -->
+      <section class="page" id="insights">
+
+        <div class="eyebrow">See the bigger picture</div>
+        <h1>Your personal <em>insights.</em></h1>
+
+        <p class="subtitle">
+          Explore your mood patterns over time,
+          based on the feelings you've recorded.
+        </p>
+
+        <div class="stats">
+
+          <div class="stat">
+            <div class="card-label">TOTAL CHECK-INS</div>
+            <strong id="insightsCount">0</strong>
+            <small class="muted">Recorded reflections</small>
+          </div>
+
+          <div class="stat">
+            <div class="card-label">MOST COMMON MOOD</div>
+            <strong id="commonMood">—</strong>
+            <small class="muted">Based on your entries</small>
+          </div>
+
+          <div class="stat">
+            <div class="card-label">DAYS TRACKED</div>
+            <strong id="trackedDays">0</strong>
+            <small class="muted">Unique days with entries</small>
+          </div>
+
+        </div>
+
+        <div class="card" style="margin-bottom:20px">
+          <div class="section-heading">
+            <div>
+              <div class="card-label">FLASK BACKEND · SEPARATE FROM CHECK-INS</div>
+              <h2>Face and sensor session</h2>
+            </div>
+          </div>
+          <div id="backend-insights" class="card-description" role="status" aria-live="polite">
+            Loading backend session data…
+          </div>
+        </div>
+
+        <div class="grid">
+
+          <div class="card">
+            <div class="card-label">MOOD DISTRIBUTION</div>
+            <h2>How you've been feeling</h2>
+
+            <p class="card-description">
+              A breakdown of the feelings you've logged.
+            </p>
+
+            <div id="distribution"></div>
+
+            <hr style="border:0;border-top:1px solid var(--border);margin:30px 0">
+
+            <div class="card-label">YOUR LAST 7 DAYS</div>
+
+            <div class="chart" id="insightsChart"></div>
+          </div>
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+
+                <div>
+                  <div class="card-label">A GENTLE SUGGESTION</div>
+                  <h2>Your next small step</h2>
+                  <p id="insightsTip"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">YOUR PROGRESS</div>
+              <h2>Every check-in counts.</h2>
+
+              <p class="card-description">
+                Tracking your feelings can help you understand
+                patterns in your everyday life.
+              </p>
+
+              <button class="btn btn-secondary" onclick="goTo('journal')">
+                Write a reflection →
+              </button>
+            </div>
+
+            <button class="btn btn-secondary" onclick="resetDemo()">
+              Reset to sample data
+            </button>
+
+          </div>
+
+        </div>
+
+        <p class="disclaimer">
+          Insights are based on self-reported entries.
+          They aren't AI predictions or medical assessments.
+        </p>
+
+      </section>
+
+      <!-- WELLBEING ADVISOR -->
+      <section class="page" id="advisor">
+        <div class="eyebrow">Personalized guidance</div>
+        <h1>Wellbeing <em>advisor.</em></h1>
+        <p class="subtitle">
+          Get suggestions based on your saved journal reflections and available
+          backend readings. This is general wellbeing guidance, not a diagnosis.
+        </p>
+        <iframe
+          id="advisor-frame"
+          title="AI wellbeing advisor"
+          loading="lazy"
+          data-src="/advisor.html"
+          style="width:100%;height:min(850px,75vh);min-height:650px;border:1px solid var(--border);border-radius:18px;background:#1a1a24"
+        ></iframe>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================================
+// MOODPULSE FRONTEND
+// ========================================
+
+// Self-reported entries stay in this browser; camera and sensor data use Flask.
+
+const STORAGE_KEY = "moodpulse_demo_data";
+
+const moods = ["Great", "Good", "Okay", "Low", "Anxious"];
+
+const emojis = {
+  Great: "😄",
+  Good: "🙂",
+  Okay: "😐",
+  Low: "😔",
+  Anxious: "😟"
+};
+
+const scores = {
+  Great: 5,
+  Good: 4,
+  Okay: 3,
+  Low: 2,
+  Anxious: 1
+};
+
+let selectedMood = "";
+const scannerVideo = document.getElementById("scanner-video");
+const scannerCanvas = document.getElementById("scanner-canvas");
+const scannerContext = scannerCanvas.getContext("2d");
+const startScannerButton = document.getElementById("start-scanner-btn");
+const stopScannerButton = document.getElementById("stop-scanner-btn");
+let cameraStream = null;
+let scannerRunning = false;
+let scannerStarting = false;
+let scannerLoopId = 0;
+
+// SAMPLE DATA
+function daysAgo(number) {
+  const date = new Date();
+  date.setDate(date.getDate() - number);
+  return date.toISOString();
+}
+
+function sampleEntries() {
+  return [
+    {
+      mood: "Good",
+      note: "Made progress on something important today.",
+      date: daysAgo(0),
+      demo: true
+    },
+    {
+      mood: "Okay",
+      note: "A little tired, but I had a productive day.",
+      date: daysAgo(1),
+      demo: true
+    },
+    {
+      mood: "Great",
+      note: "Had a good day with friends.",
+      date: daysAgo(2),
+      demo: true
+    },
+    {
+      mood: "Low",
+      note: "Today was challenging. I need some rest.",
+      date: daysAgo(4),
+      demo: true
+    },
+    {
+      mood: "Good",
+      note: "A small win made me feel better.",
+      date: daysAgo(6),
+      demo: true
+    }
+  ];
+}
+
+// LOAD SAVED ENTRIES
+function loadEntries() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if (saved !== null) {
+      const result = JSON.parse(saved);
+      if (Array.isArray(result)) return result;
+    }
+  } catch (error) {
+    console.warn("Could not load saved entries.", error);
+  }
+
+  return sampleEntries();
+}
+
+let entries = loadEntries();
+
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch (error) {
+    console.warn("Could not save entries.", error);
+    showToast("Browser storage is unavailable.");
+  }
+}
+
+// PAGE NAVIGATION
+function showPage(pageName, button) {
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.remove("active");
+  });
+
+  document.getElementById(pageName).classList.add("active");
+
+  document.querySelectorAll(".nav button").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  if (button) button.classList.add("active");
+
+  const names = {
+    overview: "Overview",
+    journal: "Mood journal",
+    scanner: "Face preview",
+    insights: "Insights",
+    advisor: "Wellbeing advisor"
+  };
+
+  document.getElementById("pageName").textContent = names[pageName];
+
+  if (pageName === "advisor") {
+    const frame = document.getElementById("advisor-frame");
+    if (!frame.dataset.loaded) {
+      frame.src = frame.dataset.src;
+      frame.dataset.loaded = "true";
+    }
+  }
+
+  window.scrollTo(0, 0);
+}
+
+function goTo(pageName) {
+  const button = [...document.querySelectorAll(".nav button")]
+    .find(btn => btn.getAttribute("onclick").includes("'" + pageName + "'"));
+
+  showPage(pageName, button);
+}
+
+// SELECT A MOOD
+document.querySelectorAll(".mood").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".mood").forEach(btn => {
+      btn.classList.remove("selected");
+    });
+
+    button.classList.add("selected");
+    selectedMood = button.dataset.mood;
+
+    document.getElementById("quickStatus").textContent = "";
+  });
+});
+
+// CREATE AN ENTRY
+function addEntry(mood, note) {
+  entries.unshift({
+    mood: mood,
+    note: note,
+    date: new Date().toISOString(),
+    demo: false
+  });
+
+  entries = entries.slice(0, 300);
+
+  saveData();
+  renderEverything();
+  showToast("Your entry has been saved!");
+}
+
+// SAVE QUICK CHECK-IN
+function saveCheckin() {
+  const status = document.getElementById("quickStatus");
+
+  if (!selectedMood) {
+    status.textContent = "Please select a mood first.";
+    return;
+  }
+
+  const note = document.getElementById("quickNote").value.trim();
+
+  addEntry(selectedMood, note);
+
+  document.getElementById("quickNote").value = "";
+  status.textContent = "Your check-in has been saved ✓";
+}
+
+// SAVE JOURNAL ENTRY
+function saveJournal() {
+  const mood = document.getElementById("journalMood").value;
+  const note = document.getElementById("journalText").value.trim();
+  const status = document.getElementById("journalStatus");
+
+  if (!note) {
+    status.textContent = "Write something before saving.";
+    return;
+  }
+
+  addEntry(mood, note);
+
+  document.getElementById("journalText").value = "";
+  status.textContent = "Your reflection has been saved ✓";
+}
+
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (HTTP ${response.status}).`);
+  }
+  return data;
+}
+
+function setScannerControls() {
+  startScannerButton.disabled = scannerRunning || scannerStarting;
+  stopScannerButton.disabled = !scannerRunning;
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  scannerVideo.srcObject = null;
+}
+
+async function startScanner() {
+  if (scannerRunning || scannerStarting) return;
+  scannerStarting = true;
+  setScannerControls();
+  document.getElementById("scanLabel").textContent = "Starting camera…";
+  document.getElementById("scanDescription").textContent = "";
+
+  try {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Camera access requires a supported browser on localhost or HTTPS.");
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 960 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false
+    });
+    cameraStream.getVideoTracks().forEach(track => {
+      track.addEventListener("ended", () => {
+        if (scannerRunning) void stopScanner();
+      }, { once: true });
+    });
+    scannerVideo.srcObject = cameraStream;
+    await scannerVideo.play();
+
+    const session = await requestJson("/continue-session", { method: "POST" });
+    scannerRunning = true;
+    scannerStarting = false;
+    setScannerControls();
+    document.getElementById("scanLabel").textContent = "Connecting to expression model…";
+    document.getElementById("scanDescription").textContent =
+      session.already_active ? "Rejoined the active backend session." : "Camera session is active.";
+    const loopId = ++scannerLoopId;
+    void analyzeScannerLoop(loopId);
+  } catch (error) {
+    closeCamera();
+    scannerRunning = false;
+    scannerStarting = false;
+    setScannerControls();
+    document.getElementById("scanLabel").textContent = "Could not start camera session";
+    document.getElementById("scanDescription").textContent = error.message;
+  }
+}
+
+async function stopScanner() {
+  if (!scannerRunning) return;
+  scannerLoopId++;
+  scannerRunning = false;
+  scannerStarting = false;
+  closeCamera();
+  setScannerControls();
+  document.getElementById("scanLabel").textContent = "Camera stopped";
+  document.getElementById("scanDescription").textContent = "Stopping the backend session…";
+
+  try {
+    await requestJson("/stop-session", { method: "POST" });
+    document.getElementById("scanDescription").textContent = "Camera session stopped.";
+  } catch (error) {
+    document.getElementById("scanDescription").textContent =
+      `Camera stopped, but the backend session could not be stopped: ${error.message}`;
+  }
+  await refreshBackendInsights();
+}
+
+async function analyzeScannerFrame(loopId) {
+  if (scannerVideo.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+
+  const scale = Math.min(1, 960 / scannerVideo.videoWidth);
+  scannerCanvas.width = Math.round(scannerVideo.videoWidth * scale);
+  scannerCanvas.height = Math.round(scannerVideo.videoHeight * scale);
+  scannerContext.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+
+  const response = await fetch("/analyze-emotion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: scannerCanvas.toDataURL("image/jpeg", 0.8) })
+  });
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (response.status === 409 && data.status === "inactive") {
+    if (scannerRunning && loopId === scannerLoopId) {
+      scannerRunning = false;
+      scannerLoopId++;
+      closeCamera();
+      setScannerControls();
+      document.getElementById("scanLabel").textContent = "Backend session ended";
+      document.getElementById("scanDescription").textContent =
+        "The camera session was stopped by the backend.";
+      void refreshBackendInsights();
+    }
+    return;
+  }
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (HTTP ${response.status}).`);
+  }
+  if (!scannerRunning || loopId !== scannerLoopId) return;
+
+  if (data.status !== "success") {
+    throw new Error(data.message || "The expression model could not analyze this frame.");
+  }
+  document.getElementById("scanLabel").textContent = data.emotion;
+  document.getElementById("scanDescription").textContent =
+    "Model output only; facial expressions are not a diagnosis or a reliable measure of how someone feels.";
+}
+
+async function analyzeScannerLoop(loopId) {
+  while (scannerRunning && loopId === scannerLoopId) {
+    const started = Date.now();
+    try {
+      await analyzeScannerFrame(loopId);
+    } catch (error) {
+      if (scannerRunning && loopId === scannerLoopId) {
+        document.getElementById("scanLabel").textContent = "Analysis unavailable";
+        document.getElementById("scanDescription").textContent = error.message;
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, 1000 - (Date.now() - started))));
+  }
+}
+
+async function refreshBackendInsights() {
+  const container = document.getElementById("backend-insights");
+  try {
+    const [summary, sensorData] = await Promise.all([
+      requestJson("/emotion-summary"),
+      requestJson("/api/sensors")
+    ]);
+    if (summary.status !== "success" || sensorData.status !== "success") {
+      throw new Error("The backend returned an unexpected data status.");
+    }
+
+    const rows = [];
+    const addRow = (label, value) => {
+      const row = document.createElement("p");
+      row.className = "card-description";
+      const strong = document.createElement("strong");
+      strong.textContent = `${label}: `;
+      row.append(strong, document.createTextNode(value));
+      rows.push(row);
+    };
+
+    addRow("Camera session", summary.active ? "Running" : "Stopped");
+    addRow("Session duration", `${Math.floor(summary.duration_seconds / 60)}m ${summary.duration_seconds % 60}s`);
+    addRow("Expression samples", String(summary.total_records));
+    if (summary.dominant_emotion) {
+      addRow("Most frequent expression", `${summary.dominant_emotion} (${summary.summary[summary.dominant_emotion]}%)`);
+    }
+    if (summary.total_records === 0) {
+      addRow("Expression details", "Start a camera session to collect samples.");
+    } else {
+      for (const [emotion, percentage] of Object.entries(summary.summary)) {
+        addRow(emotion, `${percentage}%`);
+      }
+    }
+
+    const readings = sensorData.readings || [];
+    const heartRates = readings.filter(reading => reading.type === "heart_rate");
+    const conductance = readings.filter(reading => reading.type === "skin_conductance");
+    addRow("Bracelet readings", `${readings.length} total`);
+    if (heartRates.length) addRow("Latest heart rate", `${heartRates[heartRates.length - 1].value} bpm`);
+    if (conductance.length) {
+      addRow("Latest skin conductance", `${conductance[conductance.length - 1].value} µS`);
+    }
+
+    container.replaceChildren(...rows);
+  } catch (error) {
+    container.textContent = `Backend data unavailable: ${error.message}`;
+  }
+}
+
+// DATE HELPER
+function getLocalDate(value) {
+  const date = new Date(value);
+
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+// DISPLAY JOURNAL ENTRIES
+function renderEntryList(elementId, list) {
+  const container = document.getElementById(elementId);
+
+  container.replaceChildren();
+
+  if (list.length === 0) {
+    container.textContent = "No entries yet.";
+    return;
+  }
+
+  list.forEach(entry => {
+    const card = document.createElement("div");
+    card.className = "entry";
+
+    const header = document.createElement("div");
+    header.className = "entry-header";
+
+    const emoji = document.createElement("span");
+    emoji.textContent = emojis[entry.mood] || "🙂";
+    emoji.style.fontSize = "22px";
+
+    const name = document.createElement("strong");
+    name.textContent = entry.mood;
+
+    header.append(emoji, name);
+
+    if (entry.demo) {
+      const badge = document.createElement("span");
+      badge.className = "sample-badge";
+      badge.textContent = "SAMPLE";
+      header.append(badge);
+    }
+
+    const date = document.createElement("span");
+    date.className = "entry-date";
+    date.textContent = new Date(entry.date).toLocaleDateString();
+    header.append(date);
+
+    const note = document.createElement("p");
+    note.textContent = entry.note || "Quick mood check-in.";
+
+    card.append(header, note);
+    container.append(card);
+  });
+}
+
+// CREATE WEEKLY CHART
+function renderChart(elementId) {
+  const chart = document.getElementById(elementId);
+  chart.replaceChildren();
+
+  const today = new Date();
+
+  for (let offset = 6; offset >= 0; offset--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - offset);
+
+    const matches = entries.filter(entry => {
+      return getLocalDate(entry.date) === getLocalDate(day);
+    });
+
+    let average = 0;
+
+    if (matches.length > 0) {
+      const total = matches.reduce((sum, entry) => {
+        return sum + (scores[entry.mood] || 3);
+      }, 0);
+
+      average = total / matches.length;
+    }
+
+    const column = document.createElement("div");
+    column.className = "chart-column";
+
+    const track = document.createElement("div");
+    track.className = "chart-track";
+
+    const fill = document.createElement("div");
+    fill.className = "chart-fill";
+    fill.style.height = (average / 5 * 100) + "%";
+
+    track.append(fill);
+
+    const label = document.createElement("small");
+    label.textContent = day.toLocaleDateString("en", {
+      weekday: "short"
+    });
+
+    column.append(track, label);
+    chart.append(column);
+  }
+}
+
+// PERSONALIZED SUGGESTIONS
+function getSuggestion(mood) {
+  if (mood === "Anxious") {
+    return "Try taking a short pause or talking to someone you trust.";
+  }
+
+  if (mood === "Low") {
+    return "Take things one step at a time. A little rest may help.";
+  }
+
+  if (mood === "Great" || mood === "Good") {
+    return "Notice what went well today and write it down.";
+  }
+
+  return "Take a moment to reflect on something you appreciate today.";
+}
+
+// MOOD DISTRIBUTION
+function renderDistribution() {
+  const container = document.getElementById("distribution");
+  container.replaceChildren();
+
+  moods.forEach(mood => {
+    const count = entries.filter(entry => entry.mood === mood).length;
+    const percentage = entries.length ? count / entries.length * 100 : 0;
+
+    const row = document.createElement("div");
+    row.className = "distribution-row";
+
+    const label = document.createElement("span");
+    label.textContent = mood;
+
+    const track = document.createElement("div");
+    track.className = "distribution-track";
+
+    const fill = document.createElement("div");
+    fill.className = "distribution-fill";
+    fill.style.width = percentage + "%";
+
+    track.append(fill);
+
+    const value = document.createElement("span");
+    value.textContent = count;
+
+    row.append(label, track, value);
+    container.append(row);
+  });
+}
+
+// UPDATE ALL DASHBOARD COMPONENTS
+function renderEverything() {
+  document.getElementById("checkinCount").textContent = entries.length;
+  document.getElementById("insightsCount").textContent = entries.length;
+
+  document.getElementById("journalCount").textContent =
+    entries.length + " entries";
+
+  const uniqueDays = new Set(
+    entries.map(entry => getLocalDate(entry.date))
+  );
+
+  document.getElementById("trackedDays").textContent = uniqueDays.size;
+
+  const counts = moods.map(mood => ({
+    mood: mood,
+    count: entries.filter(entry => entry.mood === mood).length
+  }));
+
+  counts.sort((a, b) => b.count - a.count);
+
+  document.getElementById("commonMood").textContent =
+    entries.length ? counts[0].mood : "—";
+
+  renderEntryList("recentEntries", entries.slice(0, 2));
+  renderEntryList("allEntries", entries);
+
+  renderChart("overviewChart");
+  renderChart("insightsChart");
+  renderDistribution();
+
+  const latestMood = entries.length ? entries[0].mood : "Okay";
+  const suggestion = getSuggestion(latestMood);
+
+  document.getElementById("overviewTip").textContent = suggestion;
+  document.getElementById("insightsTip").textContent = suggestion;
+}
+
+// RESET SAMPLE DATA
+function resetDemo() {
+  if (!confirm("Reset all entries to the sample demonstration data?")) {
+    return;
+  }
+
+  entries = sampleEntries();
+  saveData();
+  renderEverything();
+  goTo("overview");
+
+  showToast("Sample data restored");
+}
+
+// NOTIFICATION
+function showToast(message) {
+  const toast = document.getElementById("toast");
+
+  toast.textContent = message;
+  toast.style.display = "block";
+
+  clearTimeout(window.toastTimer);
+
+  window.toastTimer = setTimeout(() => {
+    toast.style.display = "none";
+  }, 3000);
+}
+
+// INITIAL LOAD
+renderEverything();
+void refreshBackendInsights();
+window.setInterval(refreshBackendInsights, 5000);
+window.addEventListener("pagehide", () => {
+  if (scannerRunning) {
+    scannerLoopId++;
+    scannerRunning = false;
+    closeCamera();
+    navigator.sendBeacon("/stop-session");
+  }
+});
+
+</script>
+<script src="/bracelet.js"></script>
+
+</body>
+</html>
