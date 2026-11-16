@@ -49,7 +49,7 @@ CRISIS_TEXT = (
 )
 
 CRISIS_TEXT_HARM_OTHERS = (
-    "Please put distance between yourself and anyone you are worried about hurting, and move "
+    "Please put distance between yourself and anyone/anything you are worried about hurting, and move "
     "away from anything you could use to hurt them. Contact someone you trust or a mental health "
     "professional now. If anyone may be in immediate danger, call your local emergency services."
 )
