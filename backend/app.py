@@ -3,11 +3,12 @@ import math
 import threading
 import time
 from collections import Counter
+from pathlib import Path
 from advice import bp as advice_bp
 import cv2
 import numpy as np
 from deepface import DeepFace
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, redirect
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -57,7 +58,12 @@ warm_up()
 
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    return send_file(Path(app.root_path) / "Index.html")
+
+
+@app.route("/index.html")
+def legacy_index():
+    return redirect("/", code=301)
 
 
 @app.route("/health")
@@ -186,11 +192,8 @@ def sensor_readings_route():
     return jsonify({"status": "success", "accepted": len(accepted), "total": total}), 201
 
 
-@app.route("/analyze-emotion", methods=["POST", "OPTIONS"])
+@app.route("/analyze-emotion", methods=["POST"])
 def analyze_emotion():
-    if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
-
     with state_lock:
         active = session["active"]
     if not active:
