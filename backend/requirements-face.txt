@@ -1,0 +1,6 @@
+# Needed for the camera / face analysis. Large downloads.
+# Without them the server still starts; face analysis then answers that it is not installed.
+opencv-python
+numpy
+deepface
+tf-keras

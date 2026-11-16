@@ -1,0 +1,4 @@
+flask
+flask-cors
+psycopg[binary]   # the library that connects Python to PostgreSQL
+pytest            # only needed to run the tests

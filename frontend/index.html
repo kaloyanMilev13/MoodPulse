@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Emotion Analytics Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; background: #1a1a24; color: #fff; padding: 20px; }
+        .dashboard { display: flex; justify-content: center; gap: 30px; margin-top: 20px; flex-wrap: wrap; }
+        video { border: 4px solid #333; border-radius: 12px; width: 100%; max-width: 480px; aspect-ratio: 4 / 3; background: #000; transform: scaleX(-1); }
+        .card { background: #252538; padding: 20px; border-radius: 12px; min-width: 280px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .card h3 { margin-top: 0; border-bottom: 2px solid #444; padding-bottom: 10px; color: #00ff66; }
+        #emotion-output { font-size: 2rem; font-weight: bold; color: #00ff66; text-transform: uppercase; }
+        .stat-line { margin: 10px 0; font-size: 1.1rem; }
+        .controls { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        button { color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+        button:disabled { opacity: 0.35; cursor: not-allowed; }
+        #start-btn { background: #1fa855; }
+        #start-btn:hover:not(:disabled) { background: #178a45; }
+        #advisor { background: #555; }
+        #advisor:hover { background: #444; }
+        #stop-btn { background: #ff3344; }
+        #stop-btn:hover:not(:disabled) { background: #d62839; }
+        #start-bracelet-btn { background: #1fa855; }
+        #start-bracelet-btn:hover:not(:disabled) { background: #178a45; }
+        #stop-bracelet-btn { background: #ff3344; }
+        #stop-bracelet-btn:hover:not(:disabled) { background: #d62839; }
+        #reset-btn { background: #555; margin-top: 15px; }
+        #reset-btn:hover:not(:disabled) { background: #444; }
+        #session-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; background: #444; }
+        #session-badge.running { background: #1fa855; }
+        #advisor-dialog { width: min(1100px, calc(100vw - 32px)); height: min(850px, calc(100vh - 32px)); max-width: none; max-height: none; padding: 12px; border: 0; border-radius: 12px; background: #1a1a24; color: #fff; }
+        #advisor-dialog::backdrop { background: rgba(0, 0, 0, 0.8); }
+        .advisor-dialog-header { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+        #close-advisor { margin: 0; background: #555; }
+        #advisor-frame { width: 100%; height: calc(100% - 52px); border: 0; border-radius: 8px; background: #1a1a24; }
+    </style>
+</head>
+<body>
+
+    <h1>Expression Analytics Platform</h1>
+    <span id="session-badge">Camera session stopped</span>
+
+    <div class="dashboard">
+        <div>
+            <video id="webcam" autoplay playsinline muted></video>
+            <br>
+            <div style="margin-top: 15px; background: #252538; padding: 10px; border-radius: 30px;">
+                <span id="emotion-output">Press Start</span>
+            </div>
+            <div class="controls">
+                <button id="start-btn" onclick="startSession()">Start / continue camera</button>
+                <button id="stop-btn" onclick="stopSession()" disabled>Stop camera</button>
+                <button id="advisor" type="button">Wellbeing Advisor</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Session Overview</h3>
+            <div id="summary-output">No tracking data gathered yet.</div>
+            <button id="reset-btn" onclick="resetSession()">Reset Timeline</button>
+        </div>
+    </div>
+
+    <dialog id="advisor-dialog" aria-label="Wellbeing Advisor">
+        <div class="advisor-dialog-header">
+            <button id="close-advisor" type="button">Close advisor</button>
+        </div>
+        <iframe id="advisor-frame" data-src="/advisor.html" title="Wellbeing Advisor"></iframe>
+    </dialog>
+
+    <canvas id="capture-canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('capture-canvas');
+        const output = document.getElementById('emotion-output');
+        const summaryOutput = document.getElementById('summary-output');
+        const badge = document.getElementById('session-badge');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const advisorBtn = document.getElementById('advisor');
+        const advisorDialog = document.getElementById('advisor-dialog');
+        const closeAdvisorBtn = document.getElementById('close-advisor');
+        const ctx = canvas.getContext('2d');
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const post = url => fetch(url, { method: 'POST' }).then(r => r.json());
+
+        let running = false;      
+        let loopId = 0;           
+        let stream = null;
+        let starting = false;
+        let lastSig = null;
+        let sameCount = 0;
+        let lastSummary = null;
+        let mostDominantEmotion = null;
+
+        const probe = document.createElement('canvas');
+        probe.width = 16; probe.height = 12;
+        const pctx = probe.getContext('2d', { willReadFrequently: true });
+
+        const advisorFrame = document.getElementById('advisor-frame');
+        advisorBtn.addEventListener('click', () => {
+            if (!advisorFrame.dataset.loaded) {
+                advisorFrame.src = advisorFrame.dataset.src;
+                advisorFrame.dataset.loaded = 'true';
+            }
+            advisorDialog.showModal();
+        });
+        closeAdvisorBtn.addEventListener('click', () => advisorDialog.close());
+
+        function stopCamera() {
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+            video.srcObject = null;
+        }
+
+
+
+        async function openCamera() {
+            if (starting) return false;
+            starting = true;
+            stopCamera();
+            lastSig = null; sameCount = 0;
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    output.innerText = "Camera needs HTTPS";
+                    return false;
+                }
+
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+                    });
+                } catch (err) {
+                    if (!["NotReadableError", "OverconstrainedError", "AbortError"].includes(err.name)) {
+                        throw err;
+                    }
+                    console.warn("Preferred camera settings failed; retrying with default settings.", err);
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                stream.getVideoTracks().forEach(t => {
+                    t.onended = () => { if (running && !document.hidden) restartCamera("Camera stopped, restarting..."); };
+                    t.onmute = () => { if (running && !document.hidden) restartCamera("Camera frozen, restarting..."); };
+                });
+                video.srcObject = stream;
+                await video.play().catch(() => {});
+                return true;
+            } catch (err) {
+                console.error("Camera startup failed:", err);
+                const message = err.name === "NotReadableError"
+                    ? "Camera is busy or unavailable. Close apps/tabs using it, then retry."
+                    : err.name === "NotAllowedError"
+                        ? "Camera permission is blocked. Allow camera access for this site."
+                        : `Camera could not start (${err.name}). Check browser and Windows camera settings.`;
+                output.innerText = message;
+                return false;
+            } finally {
+                starting = false;
+            }
+        }
+
+        function sortEmotions(emotionData) {
+            return Object.entries(emotionData)
+                .sort((a, b) => b[1] - a[1])
+                .map(([emotion, percent]) => ({ emotion, percent }));
+        }
+
+        async function restartCamera(msg) {
+            if (!running) return;
+            if (msg) output.innerText = msg;
+            await openCamera();
+        }
+
+        function cameraHealthy() {
+            if (!stream) return false;
+            const t = stream.getVideoTracks()[0];
+            return !!t && t.readyState === 'live' && !t.muted && video.readyState === video.HAVE_ENOUGH_DATA;
+        }
+
+
+        function frameIsFrozen() {
+            pctx.drawImage(video, 0, 0, 16, 12);
+            const d = pctx.getImageData(0, 0, 16, 12).data;
+            let sig = 0;
+            for (let i = 0; i < d.length; i += 4) sig += d[i] + d[i + 1] * 3 + d[i + 2] * 7;
+            if (lastSig !== null && sig === lastSig) sameCount++; else sameCount = 0;
+            lastSig = sig;
+            return sameCount >= 4;
+        }
+
+        function setUi(isRunning) {
+            running = isRunning;
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+            badge.textContent = isRunning ? "Camera session running" : "Camera session stopped";
+            badge.classList.toggle('running', isRunning);
+        }
+
+        async function beginCapture(ensureSession) {
+            output.innerText = "Starting camera...";
+            startBtn.disabled = true;
+            const sessionResult = ensureSession ? await post('/continue-session') : null;
+            const ok = await openCamera();
+            if (!ok) {
+                if (ensureSession && !sessionResult.already_active) await post('/stop-session');
+                setUi(false);
+                return;
+            }
+            setUi(true);
+            output.innerText = "Loading...";
+            analyzeLoop(++loopId);
+        }
+
+        async function startSession() { await beginCapture(true); }
+
+        async function stopSession() {
+            loopId++;
+            setUi(false);
+            stopCamera();
+            output.innerText = "Session stopped";
+            await post('/stop-session');
+            updateSessionSummary();
+        }
+
+
+        document.addEventListener('visibilitychange', () => {
+            if (!running) return;
+            output.innerText = document.hidden
+                ? "Monitoring in background..."
+                : "Monitoring...";
+        });
+
+        window.addEventListener('pageshow', e => {
+            if (e.persisted && running && !cameraHealthy()) {
+                restartCamera("Reconnecting camera...");
+            }
+        });
+
+    </script>
+
+        <section>
+        <h3>Bracelet connection</h3>
+
+        <button id="connect-bracelet" type="button">Connect bracelet</button>
+        <button id="disconnect-bracelet" type="button" disabled>Disconnect bracelet</button>
+        <button id="start-bracelet-btn" type="button" disabled>Start bracelet readings</button>
+        <button id="stop-bracelet-btn" type="button" disabled>Stop bracelet readings</button>
+
+        <label>
+            <input id="allow-bracelet-test" type="checkbox">
+            Allow simulated bracelet readings for this demo</input>
+        </label>
+
+        <p id="bracelet-status" role="status">
+            Bracelet disconnected. Camera and bracelet readings can be started independently.
+        </p>
+        </section>
+
+    <script>
+        async function analyzeCurrentFrame(id) {
+            if (starting) return;
+            if (!cameraHealthy()) { await restartCamera("Camera stopped, restarting..."); return; }
+            if (frameIsFrozen()) { await restartCamera("Camera frozen, restarting..."); return; }
+
+            const scale = Math.min(1, 960 / video.videoWidth);
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+
+            try {
+                const response = await fetch('/analyze-emotion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64Image })
+                });
+                const data = await response.json();
+                if (id !== loopId) return;   
+
+                if (data.status === "success") {
+                    output.innerText = data.emotion;
+
+                } else if (data.status === "inactive") {
+                    loopId++;
+                    setUi(false);
+                    stopCamera();
+                    output.innerText = "Session ended";
+                    updateSessionSummary();
+                } else {
+                    output.innerText = "Server error";
+                }
+            } catch (err) {
+                if (id === loopId) output.innerText = "Offline";
+            }
+        }
+
+        async function analyzeLoop(id) {
+            while (id === loopId) {
+                const started = Date.now();
+                await analyzeCurrentFrame(id);
+                await sleep(Math.max(0, 1000 - (Date.now() - started)));
+            }
+        }
+
+        function fmtDuration(sec) {
+            const m = Math.floor(sec / 60), s = sec % 60;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        async function updateSessionSummary() {
+            try {
+                const response = await fetch('/emotion-summary');
+                const data = await response.json();
+                if (data.status !== "success") return;
+                lastSummary = data;
+
+                if (data.total_records > 0) {
+                    mostDominantEmotion = data.dominant_emotion;
+                    const ranked = sortEmotions(data.summary);
+                    let html = `<strong>Session length:</strong> ${fmtDuration(data.duration_seconds)}<br>`;
+                    html += `<strong>Total Samples Processed:</strong> ${data.total_records}<br>`;
+                    html += `<strong>Dominant emotion:</strong> ${data.dominant_emotion.toUpperCase()} (${data.summary[data.dominant_emotion]}%)<br><br>`;
+                    for (const { emotion, percent } of ranked) {
+                        html += `<div class="stat-line"><strong>${emotion.toUpperCase()}:</strong> ${percent}%</div>`;
+                    }
+                    summaryOutput.innerHTML = html;
+                } else if (data.active) {
+                    summaryOutput.innerHTML = "Session running, waiting for the first samples...";
+                } else {
+                    summaryOutput.innerHTML = "No tracking data gathered yet.";
+                }
+            } catch (err) { console.error("Summary error:", err); }
+        }
+
+        async function resetSession() {
+            await post('/reset-session');
+            summaryOutput.innerHTML = running
+                ? "Timeline cleared. Session still running."
+                : "Timeline cleared.";
+        }
+
+        async function summaryLoop() {
+            while (true) {
+                await updateSessionSummary();
+                await sleep(3000);
+            }
+        }
+
+        (async function init() {
+            summaryLoop();
+            try {
+                const st = await fetch('/session-status').then(r => r.json());
+                if (st.active) {
+                    output.innerText = "Resuming session...";
+                    await beginCapture(false);
+                }
+            } catch (e) { /* server unreachable; the loops will show it */ }
+        })();
+    </script>
+
+<script src="/bracelet.js"></script>
+</body>
+</html>
