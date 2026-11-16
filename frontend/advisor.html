@@ -29,14 +29,14 @@
 <body>
 
     <h1>Wellbeing Advisor</h1>
-    <p id="advisor-back-link"><a href="/">&larr; Back to the Face AI</a></p>
+    <p id="advisor-back-link"><a href="/">&larr; Back to MoodPulse</a></p>
 
     <div class="dashboard">
         <div class="card">
-            <h3>Data from the Face AI</h3>
+            <h3>Backend data</h3>
             <div id="data-box">Loading...</div>
-            <label for="journal-input">Journal entry</label>
-            <textarea id="journal-input" placeholder="Write how you are feeling."></textarea>
+            <h4>Your saved MoodPulse reflections</h4>
+            <div id="journal-entries" class="meta">Loading saved reflections…</div>
             <button id="advice-btn" onclick="getAdvice()" disabled>Get advice</button>
             <div class="hint" id="hint"></div>
         </div>
@@ -53,7 +53,6 @@
         const adviceBox = document.getElementById('advice-box');
         const adviceBtn = document.getElementById('advice-btn');
         const hint = document.getElementById('hint');
-        const journalInput = document.getElementById('journal-input');
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
         if (window.self !== window.top) {
@@ -62,6 +61,7 @@
 
         let latest = null;
         let latestReadings = [];
+        let latestJournal = [];
         let generating = false;
         let elapsed = 0;
 
@@ -86,7 +86,7 @@
             dataBox.replaceChildren();
             const emotionCount = d ? d.total_records : 0;
             if (emotionCount === 0 && latestReadings.length === 0) {
-                dataBox.textContent = "No data yet. Start a session on the Face AI page first.";
+                dataBox.textContent = "No data yet. Start a camera session or connect the bracelet on the scanner page.";
                 return;
             }
             const line = (label, value) => {
@@ -113,23 +113,48 @@
             if (conductance.length) line('Latest skin conductance:', `${conductance[conductance.length - 1].value} uS`);
         }
 
+        function loadJournalEntries() {
+            const container = document.getElementById('journal-entries');
+            try {
+                const saved = JSON.parse(localStorage.getItem('moodpulse_demo_data') || '[]');
+                latestJournal = Array.isArray(saved)
+                    ? saved.filter(entry => entry && entry.demo !== true && typeof entry.note === 'string'
+                        && entry.note.trim()).slice(0, 5)
+                    : [];
+            } catch (error) {
+                latestJournal = [];
+                console.error('Could not read saved MoodPulse reflections:', error);
+            }
+
+            container.replaceChildren();
+            if (latestJournal.length === 0) {
+                container.textContent = 'Save a journal reflection in MoodPulse to include it here.';
+                return;
+            }
+            const list = document.createElement('ul');
+            for (const entry of latestJournal) {
+                const item = document.createElement('li');
+                item.textContent = `${entry.mood || 'Reflection'}: ${entry.note}`;
+                list.appendChild(item);
+            }
+            container.appendChild(list);
+        }
+
         function updateButton() {
             const n = latest ? latest.total_records : 0;
             const heartRateCount = latestReadings.filter(r => r.type === 'heart_rate').length;
             const conductanceCount = latestReadings.filter(r => r.type === 'skin_conductance').length;
             const enough = n >= MIN_SAMPLES || heartRateCount >= 5 || conductanceCount >= 5;
-            const hasJournal = journalInput.value.trim().length > 0;
+            const hasJournal = latestJournal.length > 0;
             adviceBtn.disabled = generating || (!enough && !hasJournal);
             if (generating) {
                 hint.textContent = `Generating... ${elapsed}s (this can take up to a minute)`;
             } else if (!enough && !hasJournal) {
-                hint.textContent = `Need ${MIN_SAMPLES} emotion samples or 5 readings from either sensor, or add a journal entry.`;
+                hint.textContent = `Need ${MIN_SAMPLES} emotion samples, 5 readings from either sensor, or a saved MoodPulse reflection.`;
             } else {
                 hint.textContent = "";
             }
         }
-
-        journalInput.addEventListener('input', updateButton);
 
         async function loadData() {
             try {
@@ -140,6 +165,7 @@
                 const [d, sensors] = await Promise.all([emotionResponse.json(), sensorResponse.json()]);
                 latest = d.status === 'success' ? d : null;
                 latestReadings = sensors.status === 'success' ? sensors.readings || [] : [];
+                loadJournalEntries();
                 renderData(latest);
             } catch (e) {
                 dataBox.textContent = "Cannot reach the server.";
@@ -159,7 +185,8 @@
                 adviceBox.appendChild(el('div', 'meta', 'Triggered by the journal entry.'));
             } else {
                 adviceBox.appendChild(el('div', 'meta',
-                    `Based on ${snap.total_records} samples over ${fmtDuration(snap.duration_seconds)}.`));
+                    `Based on ${snap.total_records} expression samples, ${latestReadings.length} sensor readings, `
+                    + `${latestJournal.length} journal reflections over ${fmtDuration(snap.duration_seconds)}.`));
             }
 
             if (data.summary) adviceBox.appendChild(el('p', null, data.summary));
@@ -187,10 +214,9 @@
         async function getAdvice() {
             if (generating) return;
             const snap = latest || { summary: {}, total_records: 0, duration_seconds: 0 };
-            const journal = journalInput.value.trim();
             const hasEnoughSensorData = latestReadings.filter(r => r.type === 'heart_rate').length >= 5
                 || latestReadings.filter(r => r.type === 'skin_conductance').length >= 5;
-            if (snap.total_records < MIN_SAMPLES && !hasEnoughSensorData && !journal) return;
+            if (snap.total_records < MIN_SAMPLES && !hasEnoughSensorData && !latestJournal.length) return;
             generating = true;
             elapsed = 0;
             adviceBox.replaceChildren(el('div', null, "Generating advice..."));
@@ -201,7 +227,7 @@
                 const payload = {
                     emotion_summary: snap.summary || {},
                     readings: latestReadings,
-                    journal: journal ? [journal] : []
+                    journal: latestJournal.map(entry => `${entry.mood || 'Reflection'}: ${entry.note}`)
                 };
                 const res = await fetch('/api/advice', {
                     method: 'POST',
