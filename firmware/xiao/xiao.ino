@@ -16,6 +16,16 @@ bool sensorReady = false;
 #define RING_CAPACITY 64
 
 
+//==============FLAGS==============
+#define FLAG_BLE_ERROR          (1 << 0) // 0x01
+#define FLAG_SENSOR_ERROR       (1 << 1) // 0x02
+#define FLAG_BUFFER_OVERFLOW    (1 << 2) // 0x04
+#define FLAG_LOW_BATTERY        (1 << 3) // 0x08
+#define FLAG_POOR_WRIST_CONTACT (1 << 4) // 0x10
+#define FLAG_OFFLINE_BUFFERING  (1 << 5) // 0x20
+#define FLAG_SIMULATION_MODE    (1 << 6) // 0x40
+#define FLAG_BATTERY_CHARGING   (1 << 7) // 0x80
+
 
 //---------------------------
 //im using the xiao nrf52840, not the nrf52840 Sense,
@@ -37,10 +47,9 @@ typedef struct __attribute__((__packed__)){//this is so that the compiler doesnt
   long heart_IrValue; //4 bytes
   long heart_redValue;//4 bytes
   uint8_t batt_lvl; //1 byte -> battery percentage 
-  uint8_t isTest; //1 byte -> test flag, simulated readings
-  uint8_t flags; //1 bye -> 0 = ok, 1 = BlE Error, 2 = MAX Sensor error, 3 = other error
+  uint8_t flags; //1 byte
 
-} Payload; //26 bytes
+} Payload; //25 bytes
 
 Payload payload;
 
@@ -59,8 +68,8 @@ HeartMeasurements heart_mes;
 
 
 typedef struct {
-  
-  uint8_t data[RING_CAPACITY];
+
+  Payload data[RING_CAPACITY];
 
   size_t head;
   size_t tail;
@@ -85,7 +94,7 @@ void MP_rb_init(MP_RingBuffer *rb){
 }
 
 bool MP_rb_isEmpty(const MP_RingBuffer *rb){
-  
+
   return rb->count == 0;
 
 }
@@ -96,12 +105,12 @@ bool MP_rb_isFull(const MP_RingBuffer *rb){
 
 }
 
-bool MP_rb_push(MP_RingBuffer *rb, uint8_t byte){
+bool MP_rb_push(MP_RingBuffer *rb, Payload p){
 
   if(MP_rb_isFull(rb))
     return false;
 
-  rb->data[rb->head] = byte;
+  rb->data[rb->head] = p;
   rb->head = (rb->head + 1) % RING_CAPACITY;
   rb->count++;
   return true;
@@ -109,12 +118,12 @@ bool MP_rb_push(MP_RingBuffer *rb, uint8_t byte){
 }
 
 
-bool MP_rb_pop(MP_RingBuffer *rb, uint8_t *out_byte){
+bool MP_rb_pop(MP_RingBuffer *rb, Payload *out_p){
 
   if(MP_rb_isEmpty(rb))
     return false;
 
-  *out_byte = rb->data[rb->tail];
+  *out_p = rb->data[rb->tail];
   rb->tail = (rb->tail + 1) % RING_CAPACITY;
   rb->count--;
   return true; 
@@ -201,6 +210,12 @@ void getHeart(HeartMeasurements *heart_mes){
   heart_mes->irValue = particleSensor.getIR();
   heart_mes->redValue = particleSensor.getRed();
 
+  if(payload.heart_IrValue < 30000){
+    payload.flags |= FLAG_POOR_WRIST_CONTACT;
+  }else{
+    payload.flags &= ~FLAG_POOR_WRIST_CONTACT;
+  }
+
   if(checkForBeat(heart_mes->irValue) == true){
 
     unsigned long beatTime = millis();
@@ -244,15 +259,16 @@ void acquireMeasurement(Payload *payload, HeartMeasurements *heart_mes){
 
 void setup() {
 
-  //TEST MODE
-  payload.isTest = SIMULATE_SENSOR;
+  //clear flags
+  payload.flags = 0;
 
+  //set simulation flag
+  if(SIMULATE_SENSOR)
+    payload.flags |= FLAG_SIMULATION_MODE;
 
   // unique id coming from the chip's serial number
   payload.device_id = (uint16_t)(NRF_FICR->DEVICEID[0] >> 16);// >>16 keeps the upper half, because the lower half might be similar/same for the chips and casts as a 16bit because this is the size
 
-  //start with no errors
-  payload.flags = 0;
 
 
   //battery reading setup
@@ -271,7 +287,7 @@ void setup() {
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 
   if(Bluefruit.begin() == false){
-    payload.flags = 1;
+    payload.flags |= FLAG_BLE_ERROR;
   }else {
     Bluefruit.setTxPower(4);
     Bluefruit.setName("XIAO BLE");
@@ -281,17 +297,18 @@ void setup() {
     bleuart.begin();
 
     startAdv();
-
+    payload.flags &= ~FLAG_BLE_ERROR;
   }
 
 
 #if !SIMULATE_SENSOR
   //MAX30102 Init and Start
   if(particleSensor.begin() == false){
-    payload.flags = 2;
+    payload.flags |= FLAG_SENSOR_ERROR;
     sensorReady = true;
   }else {
     particleSensor.setup();
+    payload.flags &= ~FLAG_SENSOR_ERROR;
   }
 #endif
 
@@ -299,8 +316,8 @@ void setup() {
 }
 
 
-
-
+//test var
+static int unsent = 0;
 
 void loop() {
 
@@ -325,7 +342,56 @@ void loop() {
     now = millis();
     lastTime = now;
 
+    //checks if usb-c is connected
+    if (NRF_POWER->USBREGSTATUS & POWER_USBREGSTATUS_VBUSDETECT_Msk) {
+      payload.flags |= FLAG_BATTERY_CHARGING;
+    } else {
+      payload.flags &= ~FLAG_BATTERY_CHARGING;
+    }
+
+    if(payload.batt_lvl < 20){
+      payload.flags |= FLAG_LOW_BATTERY;
+    }else{
+      payload.flags &= ~FLAG_LOW_BATTERY;
+    }
+
     acquireMeasurement(&payload, &heart_mes);
+    unsent++;
+
+    //buffering
+    bool buff_success = MP_rb_push(&rb, payload);
+
+    if(!buff_success){
+      payload.flags |= FLAG_BUFFER_OVERFLOW;
+    }else{
+      payload.flags &= ~FLAG_BUFFER_OVERFLOW;
+    }
+
+    if(Bluefruit.connected()){
+      unsent = 0;
+      Payload packetToSend;
+      int sentCnt = 0;
+
+      while(!MP_rb_isEmpty(&rb)){
+        if(MP_rb_pop(&rb, &packetToSend)){
+
+          packetToSend.flags |= FLAG_OFFLINE_BUFFERING;
+
+          bleuart.write((uint8_t*)&packetToSend, sizeof(packetToSend));
+          sentCnt++;
+          delay(20);
+        }
+      }
+
+      packetToSend.flags &= ~FLAG_OFFLINE_BUFFERING;
+
+      Serial.print("Buffer flushed! Sent packets: ");
+      Serial.println(sentCnt);
+    }
+
+    Serial.print("unsent packages: ");
+    Serial.println(unsent);
+
 
     // Print to Serial Monitor for local debugging
     Serial.println();
@@ -362,20 +428,20 @@ void loop() {
     Serial.print(payload.batt_lvl);
     Serial.println(F("%"));
 
-    Serial.print(F("Test flag:       "));
-    Serial.print(payload.isTest);
-    Serial.println(payload.isTest ? F(" (test)") : F(" (live)"));
 
-    Serial.print(F("Status flag:     "));
-    Serial.print(payload.flags);
-    Serial.print(F(" ("));
-    switch (payload.flags) {
-      case 0:  Serial.print(F("OK"));               break;
-      case 1:  Serial.print(F("BLE error"));        break;
-      case 2:  Serial.print(F("MAX30102 error"));   break;
-      case 3:  Serial.print(F("Other error"));      break;
-      default: Serial.print(F("Unknown"));          break;
-    }
+    Serial.print(F("Status Flags (0x"));
+    if (payload.flags < 16) Serial.print("0");
+    Serial.print(payload.flags, HEX);
+    Serial.println(F("):"));
+
+    Serial.print(F("  - BLE Error:          ")); Serial.println((payload.flags & FLAG_BLE_ERROR) ? "YES" : "NO");
+    Serial.print(F("  - Sensor Error:       ")); Serial.println((payload.flags & FLAG_SENSOR_ERROR) ? "YES" : "NO");
+    Serial.print(F("  - Buffer Overflow:    ")); Serial.println((payload.flags & FLAG_BUFFER_OVERFLOW) ? "YES" : "NO");
+    Serial.print(F("  - Low Battery:        ")); Serial.println((payload.flags & FLAG_LOW_BATTERY) ? "YES" : "NO");
+    Serial.print(F("  - Poor Wrist Contact: ")); Serial.println((payload.flags & FLAG_POOR_WRIST_CONTACT) ? "YES" : "NO");
+    Serial.print(F("  - Offline Buffering:  ")); Serial.println((payload.flags & FLAG_OFFLINE_BUFFERING) ? "YES" : "NO");
+    Serial.print(F("  - Simulation Mode:    ")); Serial.println((payload.flags & FLAG_SIMULATION_MODE) ? "YES" : "NO");
+    Serial.print(F("  - Battery Charging:   ")); Serial.println((payload.flags & FLAG_BATTERY_CHARGING) ? "YES" : "NO");
     Serial.println(F(")"));
 
     Serial.print(F("BLE connected:   "));
@@ -387,26 +453,6 @@ void loop() {
 
     Serial.println(F("======================================="));
 
-
-    if(Bluefruit.connected()){
-
-      bleuart.write((uint8_t*)&payload, sizeof(payload)); //cast the addres of stats to a uint8_t pointer
-      Serial.println("Data sent over BLE!");
-
-    }
-
-
-    while(bleuart.available()){
-
-      char ch = (char)bleuart.read();
-
-      /*  if (ch == 't' || ch == 'T') {
-          payload.flags = !payload.flags;
-          Serial.print("isTest toggled via BLE to: ");
-          Serial.println(payload.flags);
-          }*/
-
-    }
 
   }
 
