@@ -1,6 +1,6 @@
 .RECIPEPREFIX := >
 
-BOARD := Seeeduino:nrf52:xiaonRF52840Sense
+BOARD := Seeeduino:nrf52:xiaonRF52840
 PORT ?= /dev/ttyACM0
 
 .PHONY: build upload monitor

@@ -7,10 +7,13 @@
 #include "heartRate.h" //algorithm library for checkForBeat()
 
 MAX30105 particleSensor;
+bool sensorReady = false;
 
 #define SAMPLE_TIME_MS 1000
 
 #define SIMULATE_SENSOR true
+
+#define RING_CAPACITY 64
 
 
 
@@ -54,10 +57,71 @@ typedef struct {
 
 HeartMeasurements heart_mes;
 
+
+typedef struct {
+  
+  uint8_t data[RING_CAPACITY];
+
+  size_t head;
+  size_t tail;
+  size_t count;
+
+} MP_RingBuffer;
+
+MP_RingBuffer rb;
+
 //Bluetooth
 BLEUart bleuart;
 BLEDis bledis;
 BLEBas blebas;
+
+
+void MP_rb_init(MP_RingBuffer *rb){
+
+  rb->head = 0;
+  rb->tail = 0;
+  rb->count = 0;
+
+}
+
+bool MP_rb_isEmpty(const MP_RingBuffer *rb){
+  
+  return rb->count == 0;
+
+}
+
+bool MP_rb_isFull(const MP_RingBuffer *rb){
+
+  return rb->count == RING_CAPACITY;
+
+}
+
+bool MP_rb_push(MP_RingBuffer *rb, uint8_t byte){
+
+  if(MP_rb_isFull(rb))
+    return false;
+
+  rb->data[rb->head] = byte;
+  rb->head = (rb->head + 1) % RING_CAPACITY;
+  rb->count++;
+  return true;
+
+}
+
+
+bool MP_rb_pop(MP_RingBuffer *rb, uint8_t *out_byte){
+
+  if(MP_rb_isEmpty(rb))
+    return false;
+
+  *out_byte = rb->data[rb->tail];
+  rb->tail = (rb->tail + 1) % RING_CAPACITY;
+  rb->count--;
+  return true; 
+
+}
+
+
 
 
 //configure and launch the BLE advertising packets
@@ -107,7 +171,7 @@ uint8_t readBatteryPercentage(){
   float raw = total / 16.0f; //get the average
 
   // Undo the XIAO's 1 MΩ / 510 kΩ voltage divider.
-  float voltage = raw * (3.0f / 4096.0f) * ((1000.0f / 510.0f) / 510.0f);
+  float voltage = raw * (3.0f / 4096.0f) * ((1000.0f + 510.0f) / 510.0f);
 
   //rough estimate for 3.7v LiPo
   float percent = (voltage - 3.3f) * 100.0f / (4.2f - 3.3f);
@@ -132,22 +196,26 @@ void getHeart(HeartMeasurements *heart_mes){
 
 #else
 
+  if (!sensorReady) return;
+
   heart_mes->irValue = particleSensor.getIR();
   heart_mes->redValue = particleSensor.getRed();
 
   if(checkForBeat(heart_mes->irValue) == true){
 
-    long delta = millis() - heart_mes->lastBeat;
-    heart_mes->lastBeat = millis();
-
-    beatsPerMinute = 60 / (delta / 1000.0);
+    unsigned long beatTime = millis();
+    unsigned long delta = beatTime - heart_mes->lastBeat;
+    if (heart_mes->lastBeat != 0 && delta > 0) {
+      beatsPerMinute = 60000.0f / delta;
+    }
+    heart_mes->lastBeat = beatTime;
 
   }
 
 
 #endif
 
-  if(beatsPerMinute <= 255 && beatsPerMinute > 20){
+  if(beatsPerMinute <= 255 && beatsPerMinute > 0){
 
     heart_mes->beatsPerMinute = beatsPerMinute;
 
@@ -158,7 +226,9 @@ void getHeart(HeartMeasurements *heart_mes){
 
 void acquireMeasurement(Payload *payload, HeartMeasurements *heart_mes){
 
+#if SIMULATE_SENSOR
   getHeart(heart_mes);
+#endif
 
   payload->sequence++;
   payload->uptime_ms = millis();
@@ -175,7 +245,7 @@ void acquireMeasurement(Payload *payload, HeartMeasurements *heart_mes){
 void setup() {
 
   //TEST MODE
-  payload.isTest = 1;
+  payload.isTest = SIMULATE_SENSOR;
 
 
   // unique id coming from the chip's serial number
@@ -219,6 +289,7 @@ void setup() {
   //MAX30102 Init and Start
   if(particleSensor.begin() == false){
     payload.flags = 2;
+    sensorReady = true;
   }else {
     particleSensor.setup();
   }
@@ -227,7 +298,25 @@ void setup() {
 
 }
 
+
+
+
+
 void loop() {
+
+#if !SIMULATE_SENSOR
+  static bool firstRead = true;
+  if (sensorReady && firstRead) {
+    Serial.println("Starting first MAX30102 reading...");
+    Serial.flush();
+  }
+  getHeart(&heart_mes);
+  if (sensorReady && firstRead) {
+    Serial.println("First MAX30102 reading returned.");
+    Serial.flush();
+    firstRead = false;
+  }
+#endif
 
   now = millis();
 
