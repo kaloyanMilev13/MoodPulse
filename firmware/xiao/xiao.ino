@@ -1,6 +1,5 @@
 //#include <Adafruit_TinyUSB.h>
 #include <bluefruit.h>
-#include <LSM6DS3.h>
 #include <Wire.h>
 
 #include <MAX30105.h>
@@ -44,8 +43,8 @@ typedef struct __attribute__((__packed__)){//this is so that the compiler doesnt
   uint32_t uptime_ms; //4 bytes -> timestamp 
   uint8_t heart_bpm; //1 byte -> bpm reading
   uint32_t heart_lastBeat;// 4 bytes -> time of the last heartbeat
-  long heart_IrValue; //4 bytes
-  long heart_redValue;//4 bytes
+  int32_t heart_IrValue; //4 bytes
+  int32_t heart_redValue;//4 bytes
   uint8_t batt_lvl; //1 byte -> battery percentage 
   uint8_t flags; //1 byte
 
@@ -107,8 +106,11 @@ bool MP_rb_isFull(const MP_RingBuffer *rb){
 
 bool MP_rb_push(MP_RingBuffer *rb, Payload p){
 
-  if(MP_rb_isFull(rb))
-    return false;
+  if(MP_rb_isFull(rb)){
+    //delete oldest sample to make room
+    rb->tail = (rb->tail + 1) % RING_CAPACITY;
+    rb->count--;
+  }
 
   rb->data[rb->head] = p;
   rb->head = (rb->head + 1) % RING_CAPACITY;
@@ -205,36 +207,41 @@ void getHeart(HeartMeasurements *heart_mes){
 
 #else
 
+
   if (!sensorReady) return;
 
   heart_mes->irValue = particleSensor.getIR();
   heart_mes->redValue = particleSensor.getRed();
 
-  if(payload.heart_IrValue < 30000){
+  if(heart_mes->irValue < 30000){
     payload.flags |= FLAG_POOR_WRIST_CONTACT;
+    heart_mes->beatsPerMinute = 0;
+    return;
   }else{
     payload.flags &= ~FLAG_POOR_WRIST_CONTACT;
   }
 
-  if(checkForBeat(heart_mes->irValue) == true){
+  if(checkForBeat(heart_mes->irValue)){
 
     unsigned long beatTime = millis();
     unsigned long delta = beatTime - heart_mes->lastBeat;
+
     if (heart_mes->lastBeat != 0 && delta > 0) {
-      beatsPerMinute = 60000.0f / delta;
+      float bpm = 60000.0f / delta;
+      if(bpm > 20 && bpm < 255){
+        heart_mes->beatsPerMinute = bpm;//raw value of the single beat 
+      }
     }
     heart_mes->lastBeat = beatTime;
-
   }
 
 
 #endif
 
-  if(beatsPerMinute <= 255 && beatsPerMinute > 0){
-
+#if SIMULATE_SENSOR
+  if(beatsPerMinute <= 255 && beatsPerMinute > 0)
     heart_mes->beatsPerMinute = beatsPerMinute;
-
-  }
+#endif
 
 }
 
@@ -257,7 +264,43 @@ void acquireMeasurement(Payload *payload, HeartMeasurements *heart_mes){
 } 
 
 
+
+uint32_t sentTotal = 0;
+
+void pumpTx(){
+  static uint32_t lastTx = 0;
+
+  //if not connected or notification not enabled
+  if(!Bluefruit.connected() || !bleuart.notifyEnabled())
+    return;
+  
+  //if the buffer is empty
+  if(MP_rb_isEmpty(&rb))
+    return;
+  
+  //if not enough time passed
+  if(millis() - lastTx < 20)
+    return;
+
+  //index of the oldest packet
+  Payload *pkt = &rb.data[rb.tail];
+
+  //hand to the bluetooth stack and see how many bytes it received
+  size_t n = bleuart.write((uint8_t*)pkt, sizeof(Payload));
+
+  //if the bytes are equal to the payload, manage buffer
+  if(n == sizeof(Payload)){
+    rb.tail = (rb.tail + 1) % RING_CAPACITY;
+    rb.count--;
+    sentTotal++;
+  }
+  lastTx = millis();
+}
+
+
 void setup() {
+
+  MP_rb_init(&rb);
 
   //clear flags
   payload.flags = 0;
@@ -293,7 +336,10 @@ void setup() {
     Bluefruit.setName("XIAO BLE");
 
     bledis.begin();
+
     blebas.begin();
+    blebas.write(100);
+
     bleuart.begin();
 
     startAdv();
@@ -305,9 +351,9 @@ void setup() {
   //MAX30102 Init and Start
   if(particleSensor.begin() == false){
     payload.flags |= FLAG_SENSOR_ERROR;
-    sensorReady = true;
   }else {
     particleSensor.setup();
+    sensorReady = true;
     payload.flags &= ~FLAG_SENSOR_ERROR;
   }
 #endif
@@ -315,9 +361,6 @@ void setup() {
 
 }
 
-
-//test var
-static int unsent = 0;
 
 void loop() {
 
@@ -335,12 +378,20 @@ void loop() {
   }
 #endif
 
+  pumpTx();
+
   now = millis();
 
   if(now - lastTime >= SAMPLE_TIME_MS){
 
     now = millis();
     lastTime = now;
+
+    acquireMeasurement(&payload, &heart_mes);
+
+    //send battery 
+    if(Bluefruit.connected())
+      blebas.write(payload.batt_lvl);
 
     //checks if usb-c is connected
     if (NRF_POWER->USBREGSTATUS & POWER_USBREGSTATUS_VBUSDETECT_Msk) {
@@ -355,42 +406,21 @@ void loop() {
       payload.flags &= ~FLAG_LOW_BATTERY;
     }
 
-    acquireMeasurement(&payload, &heart_mes);
-    unsent++;
-
     //buffering
-    bool buff_success = MP_rb_push(&rb, payload);
-
-    if(!buff_success){
+    if(MP_rb_isFull(&rb)){
       payload.flags |= FLAG_BUFFER_OVERFLOW;
-    }else{
+    }else {
       payload.flags &= ~FLAG_BUFFER_OVERFLOW;
     }
 
-    if(Bluefruit.connected()){
-      unsent = 0;
-      Payload packetToSend;
-      int sentCnt = 0;
+    Payload p = payload;
 
-      while(!MP_rb_isEmpty(&rb)){
-        if(MP_rb_pop(&rb, &packetToSend)){
-
-          packetToSend.flags |= FLAG_OFFLINE_BUFFERING;
-
-          bleuart.write((uint8_t*)&packetToSend, sizeof(packetToSend));
-          sentCnt++;
-          delay(20);
-        }
-      }
-
-
-
-      Serial.print("Buffer flushed! Sent packets: ");
-      Serial.println(sentCnt);
+    if(!Bluefruit.connected()){
+      p.flags |= FLAG_OFFLINE_BUFFERING;
     }
 
-    Serial.print("unsent packages: ");
-    Serial.println(unsent);
+    //push in the buffer
+    MP_rb_push(&rb, p);
 
 
     // Print to Serial Monitor for local debugging
@@ -430,19 +460,18 @@ void loop() {
 
 
     Serial.print(F("Status Flags (0x"));
-    if (payload.flags < 16) Serial.print("0");
-    Serial.print(payload.flags, HEX);
+    if (p.flags < 16) Serial.print("0");
+    Serial.print(p.flags, HEX);
     Serial.println(F("):"));
 
-    Serial.print(F("  - BLE Error:          ")); Serial.println((payload.flags & FLAG_BLE_ERROR) ? "YES" : "NO");
-    Serial.print(F("  - Sensor Error:       ")); Serial.println((payload.flags & FLAG_SENSOR_ERROR) ? "YES" : "NO");
-    Serial.print(F("  - Buffer Overflow:    ")); Serial.println((payload.flags & FLAG_BUFFER_OVERFLOW) ? "YES" : "NO");
-    Serial.print(F("  - Low Battery:        ")); Serial.println((payload.flags & FLAG_LOW_BATTERY) ? "YES" : "NO");
-    Serial.print(F("  - Poor Wrist Contact: ")); Serial.println((payload.flags & FLAG_POOR_WRIST_CONTACT) ? "YES" : "NO");
-    Serial.print(F("  - Offline Buffering:  ")); Serial.println((payload.flags & FLAG_OFFLINE_BUFFERING) ? "YES" : "NO");
-    Serial.print(F("  - Simulation Mode:    ")); Serial.println((payload.flags & FLAG_SIMULATION_MODE) ? "YES" : "NO");
-    Serial.print(F("  - Battery Charging:   ")); Serial.println((payload.flags & FLAG_BATTERY_CHARGING) ? "YES" : "NO");
-    Serial.println(F(")"));
+    Serial.print(F("  - BLE Error:          ")); Serial.println((p.flags & FLAG_BLE_ERROR) ? "YES" : "NO");
+    Serial.print(F("  - Sensor Error:       ")); Serial.println((p.flags & FLAG_SENSOR_ERROR) ? "YES" : "NO");
+    Serial.print(F("  - Buffer Overflow:    ")); Serial.println((p.flags & FLAG_BUFFER_OVERFLOW) ? "YES" : "NO");
+    Serial.print(F("  - Low Battery:        ")); Serial.println((p.flags & FLAG_LOW_BATTERY) ? "YES" : "NO");
+    Serial.print(F("  - Poor Wrist Contact: ")); Serial.println((p.flags & FLAG_POOR_WRIST_CONTACT) ? "YES" : "NO");
+    Serial.print(F("  - Offline Buffering:  ")); Serial.println((p.flags & FLAG_OFFLINE_BUFFERING) ? "YES" : "NO");
+    Serial.print(F("  - Simulation Mode:    ")); Serial.println((p.flags & FLAG_SIMULATION_MODE) ? "YES" : "NO");
+    Serial.print(F("  - Battery Charging:   ")); Serial.println((p.flags & FLAG_BATTERY_CHARGING) ? "YES" : "NO");
 
     Serial.print(F("BLE connected:   "));
     Serial.println(Bluefruit.connected() ? F("yes") : F("no"));
@@ -450,6 +479,9 @@ void loop() {
     Serial.print(F("Payload size:    "));
     Serial.print(sizeof(payload));
     Serial.println(F(" bytes"));
+
+    Serial.print(F("Buffered packets: ")); Serial.println(rb.count);
+    Serial.print(F("Sent packets:     ")); Serial.println(sentTotal);
 
     Serial.println(F("======================================="));
 
