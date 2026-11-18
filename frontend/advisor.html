@@ -13,7 +13,10 @@
         .stat-line { margin: 8px 0; font-size: 1.05rem; }
         button { background: #1fa855; color: white; border: none; padding: 12px 22px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 15px; }
         button:hover:not(:disabled) { background: #178a45; }
+        button.secondary { background: #555; }
+        button.secondary:hover:not(:disabled) { background: #444; }
         button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; }
         .hint { color: #aaa; font-size: 0.9rem; margin-top: 10px; }
         .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; background: #555; margin-bottom: 10px; }
         .badge.llm { background: #1fa855; }
@@ -37,7 +40,10 @@
             <div id="data-box">Loading...</div>
             <h4>Your saved MoodPulse reflections</h4>
             <div id="journal-entries" class="meta">Loading saved reflections…</div>
-            <button id="advice-btn" onclick="getAdvice()" disabled>Get advice</button>
+            <div class="actions">
+                <button id="advice-btn" onclick="getAdvice()" disabled>Get advice</button>
+                <button id="reset-session-btn" class="secondary" onclick="resetSession()">Reset session data</button>
+            </div>
             <div class="hint" id="hint"></div>
         </div>
 
@@ -52,6 +58,7 @@
         const dataBox = document.getElementById('data-box');
         const adviceBox = document.getElementById('advice-box');
         const adviceBtn = document.getElementById('advice-btn');
+        const resetSessionBtn = document.getElementById('reset-session-btn');
         const hint = document.getElementById('hint');
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -63,6 +70,7 @@
         let latestReadings = [];
         let latestJournal = [];
         let generating = false;
+        let resetting = false;
         let elapsed = 0;
 
         function el(tag, cls, text) {
@@ -108,6 +116,8 @@
             const heartRates = latestReadings.filter(r => r.type === 'heart_rate');
             const conductance = latestReadings.filter(r => r.type === 'skin_conductance');
             line('Heart-rate readings:', String(heartRates.length));
+            const bufferedHeartRates = heartRates.filter(r => r.buffered === true).length;
+            if (bufferedHeartRates) line('Likely buffered readings (uptime estimate):', String(bufferedHeartRates));
             if (heartRates.length) line('Latest heart rate:', `${heartRates[heartRates.length - 1].value} bpm`);
             line('Skin-conductance readings:', String(conductance.length));
             if (conductance.length) line('Latest skin conductance:', `${conductance[conductance.length - 1].value} uS`);
@@ -146,8 +156,11 @@
             const conductanceCount = latestReadings.filter(r => r.type === 'skin_conductance').length;
             const enough = n >= MIN_SAMPLES || heartRateCount >= 5 || conductanceCount >= 5;
             const hasJournal = latestJournal.length > 0;
-            adviceBtn.disabled = generating || (!enough && !hasJournal);
-            if (generating) {
+            adviceBtn.disabled = generating || resetting || (!enough && !hasJournal);
+            resetSessionBtn.disabled = generating || resetting;
+            if (resetting) {
+                hint.textContent = "Resetting session data...";
+            } else if (generating) {
                 hint.textContent = `Generating... ${elapsed}s (this can take up to a minute)`;
             } else if (!enough && !hasJournal) {
                 hint.textContent = `Need ${MIN_SAMPLES} emotion samples, 5 readings from either sensor, or a saved MoodPulse reflection.`;
@@ -173,6 +186,41 @@
             updateButton();
         }
 
+        async function resetSession() {
+            if (generating || resetting) return;
+            const confirmed = window.confirm(
+                "Clear the current camera and bracelet data? Saved journal reflections will be kept. "
+                + "If tracking is active, it will continue with fresh data."
+            );
+            if (!confirmed) return;
+
+            resetting = true;
+            adviceBox.replaceChildren(el('div', null, "Resetting session data..."));
+            updateButton();
+            try {
+                const response = await fetch('/reset-session', { method: 'POST' });
+                let data;
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    throw new Error(`The server returned an unexpected answer (HTTP ${response.status}).`);
+                }
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.message || "The session data could not be reset.");
+                }
+
+                await loadData();
+                adviceBox.replaceChildren(
+                    el('div', null, "Session data cleared. Saved journal reflections were kept.")
+                );
+            } catch (error) {
+                adviceBox.replaceChildren(el('div', 'error', error.message));
+            } finally {
+                resetting = false;
+                updateButton();
+            }
+        }
+
         function renderAdvice(data, snap) {
             adviceBox.replaceChildren();
 
@@ -184,8 +232,14 @@
             if (data.crisis_response) {
                 adviceBox.appendChild(el('div', 'meta', 'Triggered by the journal entry.'));
             } else {
+                const bufferedHeartRates = latestReadings.filter(
+                    r => r.type === 'heart_rate' && r.buffered === true
+                ).length;
+                const bufferedNote = bufferedHeartRates
+                    ? ` (${bufferedHeartRates} likely buffered, based on device uptime)`
+                    : '';
                 adviceBox.appendChild(el('div', 'meta',
-                    `Based on ${snap.total_records} expression samples, ${latestReadings.length} sensor readings, `
+                    `Based on ${snap.total_records} expression samples, ${latestReadings.length} sensor readings${bufferedNote}, `
                     + `${latestJournal.length} journal reflections over ${fmtDuration(snap.duration_seconds)}.`));
             }
 
@@ -212,7 +266,7 @@
         }
 
         async function getAdvice() {
-            if (generating) return;
+            if (generating || resetting) return;
             const snap = latest || { summary: {}, total_records: 0, duration_seconds: 0 };
             const hasEnoughSensorData = latestReadings.filter(r => r.type === 'heart_rate').length >= 5
                 || latestReadings.filter(r => r.type === 'skin_conductance').length >= 5;
