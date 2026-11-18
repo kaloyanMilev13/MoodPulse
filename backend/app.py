@@ -1,4 +1,5 @@
 import base64
+import importlib
 import math
 import threading
 import time
@@ -7,9 +8,18 @@ from pathlib import Path
 from advice import bp as advice_bp
 import cv2
 import numpy as np
-from deepface import DeepFace
 from flask import Flask, request, jsonify, send_file, redirect
 from flask_cors import CORS
+
+DeepFace = None
+
+
+def load_deepface():
+    global DeepFace
+    if DeepFace is None:
+        DeepFace = importlib.import_module("deepface.DeepFace")
+    return DeepFace
+
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -41,8 +51,9 @@ MULTI = "More than one person"
 def warm_up():
     """Load/download the models once at startup so the first real frame is fast."""
     try:
+        deepface = load_deepface()
         blank = np.zeros((480, 640, 3), dtype=np.uint8)
-        DeepFace.analyze(
+        deepface.analyze(
             img_path=blank,
             actions=["emotion"],
             detector_backend="yunet",
@@ -180,7 +191,31 @@ def sensor_readings_route():
         low, high = SENSOR_RANGES[kind]
         if not low <= value <= high:
             return jsonify({"status": "error", "message": f"Reading {index} value is outside the allowed range for {kind}"}), 400
-        accepted.append({"type": kind, "value": value, "ts": timestamp})
+
+        accepted_reading = {"type": kind, "value": value, "ts": timestamp}
+        metadata_ranges = {
+            "device_id": (0, 0xFFFF),
+            "sequence": (0, 0xFFFFFFFF),
+            "uptime_ms": (0, 0xFFFFFFFF),
+            "battery": (0, 256), # change to 100 later
+            "flags": (0, 0xFF),
+        }
+        for field, (minimum, maximum) in metadata_ranges.items():
+            if field not in reading:
+                continue
+            metadata_value = reading[field]
+            if (
+                isinstance(metadata_value, bool)
+                or not isinstance(metadata_value, int)
+                or not minimum <= metadata_value <= maximum
+            ):
+                return jsonify({"status": "error", "message": f"Reading {index} has invalid {field} metadata"}), 400
+            accepted_reading[field] = metadata_value
+        if "buffered" in reading:
+            if not isinstance(reading["buffered"], bool):
+                return jsonify({"status": "error", "message": f"Reading {index} has invalid buffered metadata"}), 400
+            accepted_reading["buffered"] = reading["buffered"]
+        accepted.append(accepted_reading)
 
     with state_lock:
         if not sensor_session_active:
@@ -200,6 +235,15 @@ def analyze_emotion():
         return jsonify({"status": "inactive", "message": "No active session"}), 409
 
     try:
+        deepface = load_deepface()
+    except (ImportError, OSError) as e:
+        print(f"DeepFace unavailable: {e}", flush=True)
+        return jsonify({
+            "status": "error",
+            "message": "Emotion analysis is unavailable because DeepFace could not be loaded.",
+        }), 503
+
+    try:
         data = request.get_json(silent=True)
         if not data or "image" not in data:
             return jsonify({"status": "error", "message": "No image data received"}), 400
@@ -216,7 +260,7 @@ def analyze_emotion():
             return jsonify({"status": "error", "message": "Failed to decode frame image"}), 400
 
         with model_lock:
-            predictions = DeepFace.analyze(
+            predictions = deepface.analyze(
                 img_path=frame,
                 actions=["emotion"],
                 detector_backend="yunet",
