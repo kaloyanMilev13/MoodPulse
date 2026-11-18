@@ -13,7 +13,7 @@ bool sensorReady = false;
 
 #define SIMULATE_SENSOR true
 
-#define RING_CAPACITY 64
+#define RING_CAPACITY 10
 
 
 //==============FLAGS==============
@@ -383,7 +383,7 @@ void loop() {
         }
       }
 
-      packetToSend.flags &= ~FLAG_OFFLINE_BUFFERING;
+
 
       Serial.print("Buffer flushed! Sent packets: ");
       Serial.println(sentCnt);
