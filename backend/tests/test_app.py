@@ -11,6 +11,7 @@ uses the built-in rules.
 """
 
 import os
+import time
 import sys
 from pathlib import Path
 
@@ -78,7 +79,7 @@ def test_readings_are_stored_in_the_database(client):
     row = query("SELECT value, device_id, sequence, is_test, flags, battery"
                 " FROM readings ORDER BY id LIMIT 1")
     assert row == {"value": 41.0, "device_id": 4660, "sequence": 1,
-                   "is_test": 1, "flags": 0, "battery": 87}
+                   "is_test": 1, "flags": 0x60, "battery": 87}
 
     stored = client.get("/api/sensors").get_json()["readings"]
     assert len(stored) == 20
@@ -123,7 +124,7 @@ def test_faulty_readings_are_counted_and_left_out(client):
     start(client)
     client.post("/api/sensors", json={"readings": make_readings(60, True)})
     result = summary(client)
-    assert result["removed_why"] == {"sensor_error": 1, "impossible": 1, "duplicate": 1}
+    assert result["removed_why"] == {"sensor_error": 1, "poor_contact": 1, "duplicate": 1}
     assert result["lost"] == 3
     assert result["used"] == 55
     assert result["max"] <= 220
@@ -190,9 +191,45 @@ def test_website_files_are_served(client):
 
 
 def test_face_analysis_answers_clearly_when_not_installed(client):
-    if backend.FACE_ANALYSIS:
+    try:
+        backend.load_deepface()
         pytest.skip("face analysis is installed on this computer")
-    assert client.post("/analyze-emotion", json={"image": "x"}).status_code == 503
+    except Exception:
+        pass
+    client.post("/continue-session")
+    try:
+        assert client.post("/analyze-emotion", json={"image": "x"}).status_code == 503
+    finally:
+        client.post("/stop-session")
+
+
+def test_health_shows_the_storage(client):
+    answer = client.get("/health").get_json()
+    assert answer["storage"] == "postgresql" and answer["database"] is True
+
+
+def test_heart_rate_outside_30_to_220_is_refused(client):
+    start(client)
+    now = time.time()
+    good = {"type": "heart_rate", "value": 70, "ts": now, "device_id": 5,
+            "sequence": 1, "uptime_ms": 1000, "flags": 0x40, "battery": 80}
+    bad = dict(good, value=250, sequence=2, uptime_ms=2000, ts=now + 1)
+    assert client.post("/api/sensors", json={"readings": [good, bad]}).status_code == 400
+    assert client.get("/api/sensors").get_json()["readings"] == []
+
+
+def test_flagged_and_buffered_readings_are_stored(client):
+    start(client)
+    now = time.time()
+    good = {"type": "heart_rate", "value": 70, "ts": now, "device_id": 5,
+            "sequence": 1, "uptime_ms": 1000, "flags": 0x40, "battery": 80}
+    poor = dict(good, value=60, sequence=2, uptime_ms=2000, ts=now + 1, flags=0x50)
+    late = dict(good, value=72, sequence=3, uptime_ms=3000, ts=now + 2, buffered=True)
+    answer = client.post("/api/sensors", json={"readings": [good, poor, late]})
+    assert answer.status_code == 201 and answer.get_json()["accepted"] == 3
+    stored = client.get("/api/sensors").get_json()["readings"]
+    assert [r["value"] for r in stored] == [70, 60, 72]
+    assert stored[0]["is_test"] == 1 and stored[2]["buffered"] is True
 
 
 def test_readings_stored_out_of_order_are_analysed_in_bracelet_order(client):
@@ -206,3 +243,44 @@ def test_readings_stored_out_of_order_are_analysed_in_bracelet_order(client):
     assert result["lost"] == 0
     assert result["used"] == 30
     assert result["latest"] == readings[-1]["value"]
+
+
+def test_connection_drop_is_recovered(client):
+    # --problems includes a 10-second connection drop: those readings arrive
+    # late from the bracelet's buffer. They must still be used, counted as
+    # late, and put in the minute they were measured.
+    start(client)
+    client.post("/api/sensors", json={"readings": make_readings(60, True)})
+    answer = client.get("/api/heart-summary").get_json()
+    assert answer["summary"]["late"] >= 5
+    assert answer["summary"]["used"] == 55
+    assert sum(m["used"] for m in answer["per_minute"]) == 55
+
+
+def test_new_firmware_flags_are_understood(client):
+    start(client)
+    readings = make_readings(10, False)
+    readings[3]["flags"] = 0x60 | 0x10          # poor wrist contact
+    readings[6]["flags"] = 0x60 | 0x08 | 0x80   # low battery and charging: still usable
+    client.post("/api/sensors", json={"readings": readings})
+    result = summary(client)
+    assert result["used"] == 9
+    assert result["removed_why"] == {"poor_contact": 1}
+    assert result["test_data"] is True
+
+
+def test_heart_history_for_the_charts(client):
+    start(client)
+    client.post("/api/sensors", json={"readings": make_readings(60, True)})
+    answer = client.get("/api/heart-history?minutes=15").get_json()
+    assert answer["status"] == "success"
+    assert answer["summary"]["used"] == 55 and answer["summary"]["lost"] == 3
+    assert len(answer["readings"]) == 58          # 55 used + 3 left out
+    assert {r["check"] for r in answer["readings"]} == {"usable", "duplicate", "poor_contact", "sensor_error"}
+    assert answer["per_minute"]
+    assert query("SELECT count(*) AS n FROM heart_rate_minute")["n"] >= 1
+
+
+def test_heart_history_only_allows_known_ranges(client):
+    assert client.get("/api/heart-history?minutes=7").status_code == 400
+    assert client.get("/api/heart-history?minutes=1").status_code == 200

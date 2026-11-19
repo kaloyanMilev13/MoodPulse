@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 import database  # noqa: E402
 from heart_rate_summary import (averages_per_minute, clean_readings,  # noqa: E402,F401
-                                summarise_heart_rate)
+                                heart_rate_history, summarise_heart_rate)
 
 # Extra fields the bracelet sends with every reading (whole numbers).
 EXTRA_FIELDS = database.READING_FIELDS
@@ -71,3 +71,25 @@ def analyse_latest_bracelet(hours=24, recent_minutes=60):
         database.save_minutes(device, per_minute)
     summary["device_id"] = device
     return summary, per_minute[-recent_minutes:]
+
+
+# The time ranges the website can ask for, in minutes.
+HISTORY_RANGES = (1, 15, 60, 1440)
+
+
+def latest_bracelet_history(minutes=15):
+    """
+    The data for the heart-rate charts: the last `minutes` minutes of data of
+    the bracelet that sent the most recent reading (see heart_rate_history).
+    The per-minute results are stored in the database as well.
+    """
+    device = database.latest_device()
+    # Readings can arrive up to a few minutes late (from the bracelet's
+    # buffer), so read a little more than the window; the analytics then
+    # cuts the window by the time the readings were measured.
+    readings = database.heart_readings_until_latest(device, minutes * 60 + 300)
+    history = heart_rate_history(readings, minutes)
+    if history["per_minute"]:
+        database.save_minutes(device, history["per_minute"])
+    history["device_id"] = device
+    return history

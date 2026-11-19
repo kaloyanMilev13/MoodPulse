@@ -1,4 +1,5 @@
 import base64
+import importlib
 import math
 import threading
 import time
@@ -6,43 +7,44 @@ from collections import Counter
 from pathlib import Path
 from advice import bp as advice_bp
 import database
-from analytics_bridge import EXTRA_FIELDS, analyse_latest_bracelet
+from analytics_bridge import HISTORY_RANGES, analyse_latest_bracelet, latest_bracelet_history
 from flask import Flask, request, jsonify, send_file, redirect
+from flask_cors import CORS
 
-# Face analysis needs large extra packages (OpenCV, DeepFace). If they are
-# missing, the rest of MoodPulse still runs and the camera answers clearly.
+# Face analysis needs OpenCV and NumPy (and DeepFace, loaded later). Without
+# them the rest of MoodPulse still runs; the camera route then answers 503.
 try:
     import cv2
     import numpy as np
-    from deepface import DeepFace
-    FACE_ANALYSIS = True
-except Exception as e:
-    print(f"Face analysis is switched off ({type(e).__name__}: {e}).", flush=True)
-    FACE_ANALYSIS = False
+except ImportError as e:
+    print(f"Face analysis is switched off ({e}).", flush=True)
+    cv2 = np = None
 
-# The website: backend/static if it exists (as on the server), otherwise the
-# frontend/ folder next to backend/ (when running from the repository).
+DeepFace = None
+
+
+def load_deepface():
+    global DeepFace
+    if DeepFace is None:
+        DeepFace = importlib.import_module("deepface.DeepFace")
+    return DeepFace
+
+
+# The website files: backend/static (as on the VM), or the frontend/ folder
+# next to backend/ when the backend is started from the repository.
 STATIC = Path(__file__).resolve().parent / "static"
 if not STATIC.is_dir():
     STATIC = Path(__file__).resolve().parent.parent / "frontend"
 
 app = Flask(__name__, static_folder=str(STATIC), static_url_path="")
-try:
-    from flask_cors import CORS
-    CORS(app, resources={r"/*": {"origins": "*"}})
-except ImportError:
-    pass  # only needed when the website is served from another address
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.register_blueprint(advice_bp)
 
 session_logs = []
 sensor_session_active = False
-MAX_SENSOR_READINGS = 20000
 MAX_SENSOR_BATCH = 500
-# Heart rate: store everything the bracelet can send (one byte, 0-255).
-# The analytics module decides later which values are usable, so that
-# impossible readings are counted instead of silently disappearing.
 SENSOR_RANGES = {
-    "heart_rate": (0, 255),
+    "heart_rate": (30, 220),
     "skin_conductance": (0.01, 100),
 }
 session = {
@@ -62,8 +64,9 @@ MULTI = "More than one person"
 def warm_up():
     """Load/download the models once at startup so the first real frame is fast."""
     try:
+        deepface = load_deepface()
         blank = np.zeros((480, 640, 3), dtype=np.uint8)
-        DeepFace.analyze(
+        deepface.analyze(
             img_path=blank,
             actions=["emotion"],
             detector_backend="yunet",
@@ -74,17 +77,16 @@ def warm_up():
         print(f"Warm-up failed (will retry on first request): {e}", flush=True)
 
 
-if FACE_ANALYSIS:
-    warm_up()
+warm_up()
 
 
-# Bracelet readings are stored in PostgreSQL (see database.py). If the
-# database cannot be reached, the rest of MoodPulse still works and the
-# bracelet routes explain what is wrong.
+# Bracelet readings are stored by database.py: in PostgreSQL when DATABASE_URL
+# is set (backend/.env), otherwise in memory. If PostgreSQL cannot be reached,
+# the rest of MoodPulse still works and the bracelet routes explain what is wrong.
 DATABASE_ERROR = None
 try:
     database.init()
-    print("Connected to the PostgreSQL database.", flush=True)
+    print(f"Bracelet readings are stored in: {database.storage()}", flush=True)
 except Exception as e:
     DATABASE_ERROR = f"Database not available: {type(e).__name__}: {e}"
     print(DATABASE_ERROR, flush=True)
@@ -97,7 +99,7 @@ def database_unavailable():
         try:  # maybe PostgreSQL was started after the server: try again
             database.init()
             DATABASE_ERROR = None
-            print("Connected to the PostgreSQL database.", flush=True)
+            print(f"Bracelet readings are stored in: {database.storage()}", flush=True)
         except Exception as e:
             DATABASE_ERROR = f"Database not available: {type(e).__name__}: {e}"
             return jsonify({"status": "error", "message": DATABASE_ERROR}), 503
@@ -107,7 +109,7 @@ def database_unavailable():
 @app.route("/")
 def index():
     page = Path(app.root_path) / "Index.html"
-    if not page.is_file():  # running from the repository: use the website in frontend/
+    if not page.is_file():  # started from the repository: the website in frontend/
         page = STATIC / "jonathan_index.html"
     return send_file(page)
 
@@ -119,7 +121,7 @@ def legacy_index():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "face_analysis": FACE_ANALYSIS,
+    return jsonify({"status": "ok", "storage": database.storage(),
                     "database": DATABASE_ERROR is None})
 
 
@@ -198,7 +200,7 @@ def sensor_readings_route():
         return error
 
     if request.method == "GET":
-        readings = database.recent_readings(hours=24, limit=MAX_SENSOR_READINGS)
+        readings = database.recent_readings(hours=24)
         return jsonify({"status": "success", "readings": readings})
 
     with state_lock:
@@ -235,20 +237,39 @@ def sensor_readings_route():
         low, high = SENSOR_RANGES[kind]
         if not low <= value <= high:
             return jsonify({"status": "error", "message": f"Reading {index} value is outside the allowed range for {kind}"}), 400
-        entry = {"type": kind, "value": value, "ts": timestamp}
-        # Keep what the bracelet sent along (counter, device, test flag,
-        # error flag, battery): the analytics checks need it.
-        for field in EXTRA_FIELDS:
-            extra = reading.get(field)
-            if isinstance(extra, (int, float)) and not isinstance(extra, bool) \
-                    and math.isfinite(extra) and 0 <= extra < 2 ** 32:
-                entry[field] = int(extra)
-        accepted.append(entry)
+
+        accepted_reading = {"type": kind, "value": value, "ts": timestamp}
+        metadata_ranges = {
+            "device_id": (0, 0xFFFF),
+            "sequence": (0, 0xFFFFFFFF),
+            "uptime_ms": (0, 0xFFFFFFFF),
+            "battery": (0, 256), # change to 100 later
+            "flags": (0, 0xFF),
+        }
+        for field, (minimum, maximum) in metadata_ranges.items():
+            if field not in reading:
+                continue
+            metadata_value = reading[field]
+            if (
+                isinstance(metadata_value, bool)
+                or not isinstance(metadata_value, int)
+                or not minimum <= metadata_value <= maximum
+            ):
+                return jsonify({"status": "error", "message": f"Reading {index} has invalid {field} metadata"}), 400
+            accepted_reading[field] = metadata_value
+        if "buffered" in reading:
+            if not isinstance(reading["buffered"], bool):
+                return jsonify({"status": "error", "message": f"Reading {index} has invalid buffered metadata"}), 400
+            accepted_reading["buffered"] = reading["buffered"]
+        accepted.append(accepted_reading)
 
     with state_lock:
         if not sensor_session_active:
             return jsonify({"status": "inactive", "message": "Bracelet readings are not active"}), 409
-    total = database.add_readings(accepted)
+    try:
+        total = database.add_readings(accepted)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Could not store the readings: {e}"}), 503
     return jsonify({"status": "success", "accepted": len(accepted), "total": total}), 201
 
 
@@ -269,16 +290,38 @@ def heart_summary_route():
                     "summary": summary, "per_minute": per_minute})
 
 
+@app.route("/api/heart-history", methods=["GET"])
+def heart_history_route():
+    """
+    The data for the heart-rate charts on the Insights page:
+    ?minutes=1, 15 (default), 60 or 1440 - counted back from the latest reading.
+    """
+    error = database_unavailable()
+    if error:
+        return error
+    minutes = request.args.get("minutes", default=15, type=int)
+    if minutes not in HISTORY_RANGES:
+        return jsonify({"status": "error",
+                        "message": f"minutes must be one of {list(HISTORY_RANGES)}"}), 400
+    history = latest_bracelet_history(minutes)
+    return jsonify({"status": "success", **history})
+
+
 @app.route("/analyze-emotion", methods=["POST"])
 def analyze_emotion():
-    if not FACE_ANALYSIS:
-        return jsonify({"status": "error",
-                        "message": "Face analysis is not installed on this server"}), 503
-
     with state_lock:
         active = session["active"]
     if not active:
         return jsonify({"status": "inactive", "message": "No active session"}), 409
+
+    try:
+        deepface = load_deepface()
+    except (ImportError, OSError) as e:
+        print(f"DeepFace unavailable: {e}", flush=True)
+        return jsonify({
+            "status": "error",
+            "message": "Emotion analysis is unavailable because DeepFace could not be loaded.",
+        }), 503
 
     try:
         data = request.get_json(silent=True)
@@ -297,7 +340,7 @@ def analyze_emotion():
             return jsonify({"status": "error", "message": "Failed to decode frame image"}), 400
 
         with model_lock:
-            predictions = DeepFace.analyze(
+            predictions = deepface.analyze(
                 img_path=frame,
                 actions=["emotion"],
                 detector_backend="yunet",
@@ -355,11 +398,10 @@ def get_summary():
 
 @app.route("/reset-session", methods=["POST"])
 def reset_session():
-    with state_lock:
-        session_logs.clear()
-    if DATABASE_ERROR is None:
+    if database_unavailable() is None:
         database.clear()
     with state_lock:
+        session_logs.clear()
         if session["active"]:
             now = time.time()
             session["started_at"] = now
