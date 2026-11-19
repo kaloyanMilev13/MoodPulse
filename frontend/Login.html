@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoodPulse | Login & Sign Up</title>
+
+  <style>
+    :root {
+      --background: #0b0e0c;
+      --card: #171e18;
+      --green: #baff75;
+      --text: #f1f7f0;
+      --muted: #a0afa1;
+      --border: #2c3a2e;
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      background: var(--background);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 36px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+    }
+
+    .logo {
+      margin: 0 0 32px;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .green {
+      color: var(--green);
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 5px;
+      margin-bottom: 24px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 11px;
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    .auth-tab.active {
+      background: var(--green);
+      color: #102011;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      margin: 0 0 28px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin: 20px 0 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .optional {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-width: 0;
+      padding: 14px;
+      background: var(--background);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    input::placeholder {
+      color: #87988a;
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 3px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field-row > div {
+      min-width: 0;
+    }
+
+    .password-field {
+      position: relative;
+    }
+
+    .password-field input {
+      padding-right: 76px;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 8px;
+      background: transparent;
+      color: var(--green);
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .login-button {
+      width: 100%;
+      margin-top: 26px;
+      padding: 15px;
+      background: var(--green);
+      color: #102011;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    .login-button:hover {
+      background: #d0ffa1;
+    }
+
+    .demo-note {
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .message {
+      margin: 16px 0 0;
+      color: var(--green);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .message:empty {
+      display: none;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 16px;
+      }
+
+      .login-card {
+        padding: 24px;
+      }
+
+      .field-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login-card">
+    <p class="logo">
+      MoodPulse<span class="green">.</span>
+    </p>
+
+    <!-- SWITCH BETWEEN LOGIN AND SIGN UP -->
+    <div
+      class="auth-tabs"
+      role="group"
+      aria-label="Choose login or sign up"
+    >
+      <button
+        class="auth-tab active"
+        id="login-tab"
+        type="button"
+        aria-controls="login-form"
+        aria-pressed="true"
+      >
+        Log in
+      </button>
+
+      <button
+        class="auth-tab"
+        id="signup-tab"
+        type="button"
+        aria-controls="signup-form"
+        aria-pressed="false"
+      >
+        Sign up
+      </button>
+    </div>
+
+    <h1 id="auth-heading">Welcome back.</h1>
+
+    <p class="subtitle" id="auth-subtitle">
+      A space for your mind.
+    </p>
+
+    <!-- LOGIN FORM -->
+    <form id="login-form" aria-describedby="auth-note">
+      <label for="email">Email address</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        placeholder="you@example.com"
+        autocomplete="off"
+        required
+      >
+
+      <label for="password">Password</label>
+      <div class="password-field">
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Enter a demo password"
+          autocomplete="off"
+          required
+        >
+
+        <button
+          class="password-toggle"
+          type="button"
+          data-password-target="password"
+          aria-controls="password"
+          aria-label="Show password"
+          aria-pressed="false"
+        >Show</button>
+      </div>
+
+      <button class="login-button" type="submit">
+        Continue to demo →
+      </button>
+    </form>
+
+    <!-- SIGN-UP FORM -->
+    <form id="signup-form" aria-describedby="auth-note" hidden>
+      <label for="signup-username">Username</label>
+      <input
+        id="signup-username"
+        name="username"
+        type="text"
+        placeholder="Choose a username"
+        autocomplete="off"
+        minlength="3"
+        required
+      >
+
+      <label for="signup-email">Email address</label>
+      <input
+        id="signup-email"
+        name="email"
+        type="email"
+        placeholder="you@example.com"
+        autocomplete="off"
+        required
+      >
+
+      <div class="field-row">
+        <div>
+          <label for="signup-age">Age</label>
+          <input
+            id="signup-age"
+            name="age"
+            type="number"
+            placeholder="Your age"
+            min="1"
+            step="1"
+            required
+          >
+        </div>
+
+        <div>
+          <label for="signup-gender">Gender</label>
+          <select id="signup-gender" name="gender" required>
+            <option value="" disabled selected>Select</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="rather-not-say">Rather not say</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label for="signup-height">
+            Height (cm) <span class="optional">Optional</span>
+          </label>
+          <input
+            id="signup-height"
+            name="height_cm"
+            type="number"
+            placeholder="e.g. 186"
+            min="1"
+            step="0.1"
+          >
+        </div>
+
+        <div>
+          <label for="signup-weight">
+            Weight (kg) <span class="optional">Optional</span>
+          </label>
+          <input
+            id="signup-weight"
+            name="weight_kg"
+            type="number"
+            placeholder="e.g. 85.5"
+            min="1"
+            step="0.1"
+          >
+        </div>
+      </div>
+
+      <label for="signup-password">Password</label>
+      <div class="password-field">
+        <input
+          id="signup-password"
+          name="password"
+          type="password"
+          placeholder="At least 8 characters"
+          autocomplete="off"
+          minlength="8"
+          required
+        >
+
+        <button
+          class="password-toggle"
+          type="button"
+          data-password-target="signup-password"
+          aria-controls="signup-password"
+          aria-label="Show password"
+          aria-pressed="false"
+        >Show</button>
+      </div>
+
+      <label for="confirm-password">Confirm password</label>
+      <input
+        id="confirm-password"
+        name="confirm-password"
+        type="password"
+        placeholder="Repeat your password"
+        autocomplete="off"
+        minlength="8"
+        required
+      >
+
+      <button class="login-button" type="submit">
+        Try sign-up demo →
+      </button>
+    </form>
+
+    <p class="demo-note" id="auth-note">
+      Demo only. Use made-up details. Accounts are not created,
+      and this page does not save your details.
+    </p>
+
+    <p class="message" id="auth-message" role="status"></p>
+  </main>
+
+  <script>
+    // Find the page elements.
+    const loginTab = document.getElementById("login-tab");
+    const signupTab = document.getElementById("signup-tab");
+
+    const loginForm = document.getElementById("login-form");
+    const signupForm = document.getElementById("signup-form");
+
+    const heading = document.getElementById("auth-heading");
+    const subtitle = document.getElementById("auth-subtitle");
+    const message = document.getElementById("auth-message");
+
+    const signupPassword = document.getElementById("signup-password");
+    const confirmPassword = document.getElementById("confirm-password");
+
+    const passwordButtons = document.querySelectorAll(
+      "[data-password-target]"
+    );
+
+    // Hide passwords and reset the Show/Hide buttons.
+    function hidePasswords() {
+      passwordButtons.forEach(function (button) {
+        const input = document.getElementById(
+          button.dataset.passwordTarget
+        );
+
+        input.type = "password";
+        button.textContent = "Show";
+        button.setAttribute("aria-label", "Show password");
+        button.setAttribute("aria-pressed", "false");
+      });
+    }
+
+    // Switch between the forms on this same page.
+    function switchForm(showSignup) {
+      loginForm.hidden = showSignup;
+      signupForm.hidden = !showSignup;
+
+      loginTab.classList.toggle("active", !showSignup);
+      signupTab.classList.toggle("active", showSignup);
+
+      loginTab.setAttribute("aria-pressed", String(!showSignup));
+      signupTab.setAttribute("aria-pressed", String(showSignup));
+
+      heading.textContent = showSignup
+        ? "Create your account."
+        : "Welcome back.";
+
+      subtitle.textContent = showSignup
+        ? "Tell us a little about yourself."
+        : "A space for your mind.";
+
+      message.textContent = "";
+      hidePasswords();
+    }
+
+    // Switch to login.
+    loginTab.addEventListener("click", function () {
+      switchForm(false);
+    });
+
+    // Switch to sign up.
+    signupTab.addEventListener("click", function () {
+      switchForm(true);
+    });
+
+    // Toggle password visibility.
+    passwordButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        const input = document.getElementById(
+          button.dataset.passwordTarget
+        );
+
+        const showPassword = input.type === "password";
+
+        input.type = showPassword ? "text" : "password";
+        button.textContent = showPassword ? "Hide" : "Show";
+
+        button.setAttribute(
+          "aria-label",
+          showPassword ? "Hide password" : "Show password"
+        );
+
+        button.setAttribute("aria-pressed", String(showPassword));
+      });
+    });
+
+    // Validate matching sign-up passwords.
+    function checkPasswords() {
+      const passwordsMatch =
+        signupPassword.value === confirmPassword.value;
+
+      confirmPassword.setCustomValidity(
+        passwordsMatch ? "" : "The passwords do not match."
+      );
+    }
+
+    signupPassword.addEventListener("input", checkPasswords);
+    confirmPassword.addEventListener("input", checkPasswords);
+
+    // Demo login: open the dashboard through Flask.
+    loginForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      loginForm.reset();
+      hidePasswords();
+
+      window.location.href = "/overview";
+    });
+
+    // Demo sign-up: display feedback after browser validation.
+    signupForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      signupForm.reset();
+      confirmPassword.setCustomValidity("");
+      hidePasswords();
+
+      message.textContent =
+        "The sign-up form passed its checks. Account creation will work once we connect it to Flask.";
+    });
+  </script>
+</body>
+</html>
