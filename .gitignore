@@ -35,3 +35,6 @@ firmware/sdkconfig.old
 /deliverables/
 /docs/personal/
 
+#temporary
+firmware/esp/
+
