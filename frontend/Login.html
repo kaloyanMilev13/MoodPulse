@@ -115,6 +115,38 @@
       font-weight: 400;
     }
 
+    .consent-details {
+      margin: 22px 0 0;
+      padding: 14px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .consent-details p {
+      margin: 0;
+    }
+
+    .consent-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 14px 0 0;
+      line-height: 1.5;
+    }
+
+    .consent-label input {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      margin: 2px 0 0;
+      padding: 0;
+      border-radius: 4px;
+      accent-color: var(--green);
+    }
+
     input,
     select {
       width: 100%;
@@ -322,12 +354,13 @@
       <div class="field-row">
         <div>
           <label for="signup-age">Age</label>
+          <!-- DON'T CHANGE min -->
           <input
             id="signup-age"
             name="age"
             type="number"
             placeholder="Your age"
-            min="1"
+            min="16" 
             step="1"
             required
           >
@@ -408,6 +441,30 @@
         maxlength="1024"
         required
       >
+
+      <div class="consent-details">
+        <p>
+          MoodPulse processes profile information, heart-rate
+          readings, journal entries, camera images for emotion analysis, and the
+          resulting emotion labels to provide your account, wellness summaries,
+          and advice. When you request advice, selected journal text and derived
+          data may be sent to the language-model service configured for this
+          installation; that service may be hosted locally or by a third party.
+          This is a wellness tool, not a medical service.
+        </p>
+        <label class="consent-label" for="data-processing-consent">
+          <input
+            id="data-processing-consent"
+            name="data_processing_consent"
+            type="checkbox"
+            required
+          >
+          <span>
+            I explicitly consent to the processing of my personal and
+            health-related data for these MoodPulse features.
+          </span>
+        </label>
+      </div>
 
       <button class="login-button" type="submit">
         Create account →
@@ -519,6 +576,7 @@
       );
     }
 
+
     signupPassword.addEventListener("input", checkPasswords);
     confirmPassword.addEventListener("input", checkPasswords);
 
@@ -561,7 +619,10 @@
         height_cm: document.getElementById("signup-height").value || null,
         weight_kg: document.getElementById("signup-weight").value || null,
         password: signupPassword.value,
-        confirm_password: confirmPassword.value
+        confirm_password: confirmPassword.value,
+        data_processing_consent: document.getElementById(
+          "data-processing-consent"
+        ).checked
       }, signupForm.querySelector('[type="submit"]'));
     });
   </script>
