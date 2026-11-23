@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoodPulse | Your Daily Check-In</title>
+
+<style>
+:root {
+  --bg: #0b0e0c;
+  --sidebar: #101511;
+  --card: #171e18;
+  --card2: #1c271e;
+  --green: #baff75;
+  --green2: #83ec59;
+  --text: #f1f7f0;
+  --muted: #a0afa1;
+  --border: #2c3a2e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+}
+
+button, textarea, select {
+  font: inherit;
+}
+
+button { cursor: pointer; }
+
+button:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 250px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 28px 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 38px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+}
+
+.logo-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--green);
+  color: #102011;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.logo h2 {
+  font-size: 22px;
+  letter-spacing: -1px;
+  margin: 0;
+}
+
+.logo small { color: var(--muted); }
+
+.nav-title {
+  color: #778878;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  padding: 0 13px;
+  margin-bottom: 12px;
+}
+
+.nav {
+  display: grid;
+  gap: 6px;
+}
+
+.nav button {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 12px;
+  text-align: left;
+  transition: 0.2s;
+}
+
+.nav button:hover {
+  background: #1b281d;
+  color: white;
+}
+
+.nav button.active {
+  background: #213022;
+  border-color: #344f36;
+  color: var(--green);
+  font-weight: 650;
+}
+
+.nav button span { margin-right: 12px; }
+
+.sidebar-bottom {
+  margin-top: auto;
+  border: 1px solid var(--border);
+  background: #19231a;
+  border-radius: 16px;
+  padding: 17px;
+}
+
+.sidebar-bottom strong { color: var(--green); }
+
+.sidebar-bottom p {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+
+/* MAIN LAYOUT */
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar {
+  height: 75px;
+  padding: 0 6%;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.breadcrumb { color: var(--muted); }
+.breadcrumb strong { color: white; }
+
+.demo-badge {
+  color: var(--green);
+  background: #1d2b1e;
+  border: 1px solid #3c593d;
+  border-radius: 30px;
+  padding: 8px 13px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.login-link {
+  margin-right: 12px;
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
+.content {
+  max-width: 1250px;
+  margin: auto;
+  padding: 46px 6% 90px;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+.eyebrow {
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 13px;
+}
+
+h1 {
+  font-size: clamp(34px, 4.5vw, 54px);
+  letter-spacing: -2px;
+  line-height: 1.12;
+  margin: 0 0 15px;
+}
+
+h1 em {
+  font-style: normal;
+  color: var(--green);
+}
+
+.subtitle {
+  color: var(--muted);
+  line-height: 1.8;
+  font-size: 15px;
+  max-width: 650px;
+  margin-bottom: 32px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 20px;
+}
+
+.stack {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.card {
+  background: linear-gradient(145deg, #1b261c, #141a15);
+  border: 1px solid var(--border);
+  padding: 26px;
+  border-radius: 21px;
+}
+
+.card h2 {
+  font-size: 19px;
+  margin: 0 0 12px;
+  letter-spacing: -.5px;
+}
+
+.card-label {
+  font-size: 10px;
+  color: #809182;
+  letter-spacing: 1.7px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.card-description {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 13px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 { margin: 0; }
+
+label {
+  display: block;
+  color: #dceadd;
+  font-weight: 600;
+  margin: 18px 0 9px;
+}
+
+textarea, select {
+  width: 100%;
+  background: #0f1511;
+  border: 1px solid #38483b;
+  color: white;
+  border-radius: 13px;
+  padding: 15px;
+}
+
+textarea {
+  min-height: 115px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+textarea::placeholder { color: #718174; }
+
+.btn {
+  border: 1px solid var(--border);
+  padding: 12px 17px;
+  border-radius: 11px;
+  background: #253527;
+  color: var(--text);
+  font-weight: 650;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  background: #334735;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #102011;
+  border-color: var(--green);
+}
+
+.btn-primary:hover { background: #d0ffa1; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+}
+
+.form-footer {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+
+.success {
+  color: var(--green);
+  font-size: 12px;
+  margin-top: 12px;
+  min-height: 18px;
+}
+
+/* DASHBOARD STATISTICS */
+.hero-stat {
+  background:
+    radial-gradient(circle at 100% 0%,
+      #86d76b35, transparent 55%),
+    linear-gradient(145deg, #223223, #101811);
+}
+
+.big-number {
+  color: var(--green);
+  font-size: 54px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  margin: 20px 0 0;
+}
+
+.chart {
+  height: 160px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  align-items: end;
+  margin-top: 20px;
+}
+
+.chart-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-track {
+  background: #253327;
+  width: 30px;
+  max-width: 100%;
+  height: 125px;
+  border-radius: 9px;
+  display: flex;
+  align-items: end;
+  overflow: hidden;
+}
+
+.chart-fill {
+  width: 100%;
+  background: linear-gradient(0deg, #649d4a, var(--green));
+  border-radius: 9px;
+}
+
+.chart-column small { color: var(--muted); }
+
+.heart-chart {
+  gap: 6px;
+}
+
+.heart-chart .chart-column small {
+  font-size: 10px;
+}
+
+.heart-card { margin-bottom: 20px; }
+.heart-card .section-heading { flex-wrap: wrap; }
+.hr-ranges { display: flex; gap: 6px; }
+.hr-ranges button {
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.hr-ranges button[aria-pressed="true"] { background: #2a3a2b; color: var(--text); border-color: #4a5f4b; }
+.hr-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 18px; font-size: 12px; color: var(--muted); }
+.hr-badge { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+.hr-badge.test { border-color: #6b5a1e; color: #f2d57a; }
+.hr-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.hr-tile { border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; background: #151c16; }
+.hr-tile span { display: block; font-size: 12px; color: var(--muted); }
+.hr-tile strong { display: block; font-size: 26px; font-weight: 600; margin-top: 4px; }
+.hr-tile small { color: var(--muted); font-size: 12px; }
+.hr-chart-wrap { position: relative; }
+.hr-chart-wrap.loading { opacity: .5; }
+.hr-chart-wrap svg { display: block; width: 100%; overflow: visible; }
+.hr-chart-wrap svg:focus { outline: none; }
+.hr-chart-wrap svg:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; border-radius: 6px; }
+.hr-axis { fill: #8a9a8c; font-size: 11px; font-variant-numeric: tabular-nums; }
+.hr-grid { stroke: #263228; stroke-width: 1; }
+.hr-tooltip {
+  position: absolute; pointer-events: none; background: #0f1410; border: 1px solid #34453a;
+  border-radius: 10px; padding: 8px 11px; font-size: 12px; color: var(--muted);
+  white-space: nowrap; transform: translate(-50%, -100%); display: none; z-index: 2;
+}
+.hr-tooltip strong { display: block; color: var(--text); font-size: 15px; }
+.hr-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.hr-legend i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.hr-legend i.empty { background: #253327; outline: 1px solid #3d4f3f; }
+.hr-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+.hr-segbar { display: flex; gap: 2px; height: 28px; margin: 6px 0 10px; }
+.hr-segbar div {
+  border-radius: 4px; display: flex; align-items: center; padding-left: 8px;
+  font-size: 12px; font-weight: 600; min-width: 2px; overflow: hidden; white-space: nowrap;
+}
+.hr-reasons { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13px; }
+.hr-reasons li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #222c23; }
+.hr-reasons li small { color: var(--muted); }
+.hr-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.hr-table th, .hr-table td { text-align: right; padding: 5px 8px; border-bottom: 1px solid #222c23; }
+.hr-table th:first-child, .hr-table td:first-child { text-align: left; }
+.heart-card details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 18px; }
+@media (max-width: 760px) {
+  .hr-tiles { grid-template-columns: repeat(2, 1fr); }
+  .hr-lower { grid-template-columns: 1fr; }
+}
+
+.tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.tip-icon {
+  background: #30472d;
+  color: var(--green);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  flex-shrink: 0;
+}
+
+.tip p {
+  color: var(--muted);
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+
+/* JOURNAL */
+.entry {
+  background: #151e17;
+  border: 1px solid var(--border);
+  padding: 18px;
+  border-radius: 15px;
+  margin-bottom: 11px;
+}
+
+.entry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entry-header strong { font-size: 13px; }
+
+.entry-date {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.entry-delete {
+  flex-shrink: 0;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.entry-delete:hover {
+  color: #ffc8c8;
+  background: #3a2226;
+  border-color: #774047;
+}
+
+.entry p {
+  color: #b8c6b9;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0 0;
+}
+
+.sample-badge {
+  font-size: 9px;
+  color: var(--green);
+  border: 1px solid #496047;
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+.journal-layout {
+  display: grid;
+  grid-template-columns: 1fr 0.85fr;
+  gap: 20px;
+}
+
+.journal-history {
+  max-height: 650px;
+  overflow-y: auto;
+}
+
+.text-link {
+  color: var(--green);
+  border: none;
+  background: transparent;
+  font-weight: 600;
+}
+
+.text-link:hover { text-decoration: underline; }
+
+/* FACE PREVIEW */
+.scanner-video {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 4 / 3;
+  margin: 20px auto;
+  border: 1px solid #638563;
+  border-radius: 15px;
+  background: #080b08;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.scanner-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.scanner-result {
+  margin-top: 25px;
+  background: #111c13;
+  border: 1px solid #38513a;
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.scanner-result strong {
+  color: var(--green);
+  font-size: 16px;
+}
+
+/* INSIGHTS */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  padding: 23px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: #171f18;
+}
+
+.stat strong {
+  display: block;
+  font-size: 30px;
+  color: var(--green);
+  margin-top: 8px;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 75px 1fr 25px;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.distribution-track {
+  background: #29382b;
+  height: 9px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.distribution-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #639e4a, var(--green));
+  border-radius: 20px;
+}
+
+.disclaimer {
+  margin-top: 35px;
+  color: #7b8b7d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.toast {
+  position: fixed;
+  right: 25px;
+  bottom: 25px;
+  background: #263b26;
+  color: var(--green);
+  border: 1px solid #5b8e53;
+  padding: 14px 20px;
+  border-radius: 12px;
+  display: none;
+  z-index: 100;
+}
+
+/* MOBILE */
+@media (max-width: 1000px) {
+  .grid, .journal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app { display: block; }
+  .sidebar {
+    width: 100%;
+    position: static;
+    height: auto;
+    padding: 18px;
+    gap: 18px;
+  }
+  .nav {
+    display: flex;
+    overflow-x: auto;
+  }
+  .nav button {
+    white-space: nowrap;
+    width: auto;
+  }
+  .sidebar-bottom { display: none; }
+  .content { padding: 30px 18px; }
+  .topbar { padding: 0 18px; }
+  .stats { grid-template-columns: 1fr; }
+  .card { padding: 20px; }
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="logo">
+      <div class="logo-icon">∿</div>
+      <div>
+        <h2>MoodPulse<span style="color:var(--green)">.</span></h2>
+        <small>A space for your mind</small>
+      </div>
+    </div>
+
+    <div>
+      <div class="nav-title">YOUR SPACE</div>
+
+      <nav class="nav">
+        <button class="active" onclick="showPage('overview', this)">
+          <span>▦</span> Overview
+        </button>
+
+        <button onclick="showPage('journal', this)">
+          <span>▤</span> Mood journal
+        </button>
+
+        <button onclick="showPage('scanner', this)">
+          <span>◎</span> Face preview
+        </button>
+
+        <button onclick="showPage('insights', this)">
+          <span>◫</span> Insights
+        </button>
+
+        <button onclick="showPage('advisor', this)">
+          <span>✦</span> AI wellbeing advisor
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-bottom">
+      <strong>MoodPulse Prototype</strong>
+      <p>
+        A journal-first wellness companion.
+        A simple demonstration of the final app concept.
+      </p>
+      <small class="muted">Team Demo · Version 1.1</small>
+    </div>
+
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="breadcrumb">
+        MoodPulse / <strong id="pageName">Overview</strong>
+      </div>
+
+      <div>
+        <span id="account-name"></span>
+        <button class="btn btn-secondary" id="logout-button" type="button">Sign out</button>
+        <span class="demo-badge">● LIVE + LOCAL DATA</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- OVERVIEW PAGE -->
+      <section class="page active" id="overview">
+
+        <div class="eyebrow">Your daily space</div>
+
+        <h1>How are you feeling <em>today?</em></h1>
+
+        <p class="subtitle">
+          A little check-in can go a long way.
+          Take a moment to reflect, notice patterns,
+          and make room for yourself.
+        </p>
+
+        <div class="grid">
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="card-label">01 / JOURNAL CHECK-IN</div>
+              <h2>Put your feelings into words</h2>
+              <p class="card-description">
+                Describe how you're feeling in your own words. No emoji choices
+                or mood rating needed.
+              </p>
+
+              <label for="quickNote">How are you feeling today?</label>
+
+              <textarea id="quickNote" style="min-height:165px"
+                placeholder="Today I've been feeling... because..."></textarea>
+
+              <div class="form-footer">
+                <small class="muted">
+                  Your reflections stay in this browser.
+                </small>
+
+                <button class="btn btn-primary" onclick="saveCheckin()">
+                  Save reflection →
+                </button>
+              </div>
+
+              <div class="success" id="quickStatus"></div>
+            </div>
+
+            <div class="card">
+              <div class="section-heading">
+                <div>
+                  <div class="card-label">YOUR REFLECTIONS</div>
+                  <h2>Recent reflections</h2>
+                </div>
+
+                <button class="text-link" onclick="goTo('journal')">
+                  View journal ↗
+                </button>
+              </div>
+
+              <div id="recentEntries"></div>
+            </div>
+
+          </div>
+
+          <div class="stack">
+
+            <div class="card hero-stat">
+              <div class="card-label">YOUR MOMENTS MATTER</div>
+              <h2>Keep showing up<br>for yourself.</h2>
+
+              <div class="big-number" id="checkinCount">0</div>
+              <div class="muted small">reflections recorded</div>
+
+              <p style="margin-top:25px;color:var(--green)">
+                ✦ Small steps, meaningful progress.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">LAST 7 DAYS</div>
+              <h2>Your writing at a glance</h2>
+
+              <div class="chart" id="overviewChart"></div>
+
+              <p class="muted small">
+                Number of reflections written each day
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+                <div>
+                  <div class="card-label">A SMALL REMINDER</div>
+                  <h2>Something to try today</h2>
+                  <p id="overviewTip"></p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <p class="disclaimer">
+          MoodPulse is a concept demonstration, not a medical or
+          mental-health diagnosis. Sample entries are labeled.
+        </p>
+
+      </section>
+
+      <!-- MOOD JOURNAL PAGE -->
+      <section class="page" id="journal">
+
+        <div class="eyebrow">A place to reflect</div>
+        <h1>Your mood <em>journal.</em></h1>
+
+        <p class="subtitle">
+          Write about what you feel, big or small.
+          There's no right way to check in.
+        </p>
+
+        <div class="journal-layout">
+
+          <div class="card">
+            <div class="card-label">NEW ENTRY</div>
+            <h2>What's on your mind?</h2>
+
+            <label for="journalText">How have you been feeling?</label>
+
+            <textarea
+              id="journalText"
+              style="min-height:220px"
+              placeholder="Today I felt..."></textarea>
+
+            <div class="form-footer">
+              <small class="muted">
+                Entries are saved only on this device.
+              </small>
+
+              <button class="btn btn-primary" onclick="saveJournal()">
+                Save entry →
+              </button>
+            </div>
+
+            <div class="success" id="journalStatus"></div>
+
+            <hr style="border:0;border-top:1px solid var(--border);margin:28px 0">
+
+            <div class="card-label">NEED SOME INSPIRATION?</div>
+
+            <p class="card-description">
+              What made you smile today? What challenged you?
+              What's one thing you're grateful for?
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="section-heading">
+              <div>
+                <div class="card-label">YOUR TIMELINE</div>
+                <h2>Past reflections</h2>
+              </div>
+              <span class="muted small" id="journalCount"></span>
+            </div>
+
+            <div class="journal-history" id="allEntries"></div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- FACE SCANNER -->
+      <section class="page" id="scanner">
+
+        <div class="eyebrow">Live backend integration</div>
+        <h1>Expression <em>scanner.</em></h1>
+
+        <p class="subtitle">
+          Start a camera session to send frames to the face-analysis service.
+          Camera results are kept separate from your self-reported journal.
+        </p>
+
+        <div class="grid">
+
+          <div class="card" style="text-align:center">
+            <div class="card-label">LIVE CAMERA · FLASK FACE ANALYSIS</div>
+            <video id="scanner-video" class="scanner-video" autoplay playsinline muted
+              aria-label="Live camera preview for facial expression analysis"></video>
+            <canvas id="scanner-canvas" width="640" height="480" hidden></canvas>
+
+            <div class="scanner-controls">
+              <button id="start-scanner-btn" class="btn btn-primary" onclick="startScanner()">
+                Start camera session
+              </button>
+              <button id="stop-scanner-btn" class="btn btn-secondary" onclick="stopScanner()" disabled>
+                Stop camera session
+              </button>
+            </div>
+
+            <div class="scanner-result">
+              <strong id="scanLabel" aria-live="polite">Camera stopped</strong>
+              <p class="muted small" id="scanDescription" role="status">
+                Start a session to enable live analysis. Camera access requires localhost or HTTPS.
+              </p>
+            </div>
+          </div>
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="card-label">HOW IT FITS TOGETHER</div>
+              <h2>The final app concept</h2>
+
+              <p class="card-description">
+                1. Your browser captures a camera frame.
+              </p>
+              <p class="card-description">
+                2. Flask sends the frame to the expression model.
+              </p>
+              <p class="card-description">
+                3. The result and session summary appear here and in Insights.
+              </p>
+              <p class="card-description">
+                Your camera data is not added to your self-reported check-ins.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">BRACELET</div>
+              <h2>Sensor readings</h2>
+              <p class="card-description">
+                Connect your bracelet to send heart-rate readings to the backend.
+              </p>
+              <div class="scanner-controls">
+                <button id="connect-bracelet" class="btn btn-primary" type="button">Connect bracelet</button>
+                <button id="disconnect-bracelet" class="btn btn-secondary" type="button" disabled>Disconnect</button>
+              </div>
+              <p id="bracelet-status" class="small" role="status" aria-live="polite">
+                Bracelet disconnected.
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+                <div>
+                  <h2>Designed with care</h2>
+                  <p>
+                    Facial expressions don't always reveal
+                    someone's true emotions, so treat this model
+                    output as an estimate rather than a diagnosis.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- INSIGHTS PAGE -->
+      <section class="page" id="insights">
+
+        <div class="eyebrow">See the bigger picture</div>
+        <h1>Your personal <em>insights.</em></h1>
+
+        <p class="subtitle">
+          See how regularly you've journaled and how much you've written.
+          Your feelings stay in your own words.
+        </p>
+
+        <div class="stats">
+
+          <div class="stat">
+            <div class="card-label">TOTAL REFLECTIONS</div>
+            <strong id="insightsCount">0</strong>
+            <small class="muted">Recorded reflections</small>
+          </div>
+
+          <div class="stat">
+            <div class="card-label">WORDS WRITTEN</div>
+            <strong id="wordCount">0</strong>
+            <small class="muted">Across your saved journal entries</small>
+          </div>
+
+          <div class="stat">
+            <div class="card-label">DAYS TRACKED</div>
+            <strong id="trackedDays">0</strong>
+            <small class="muted">Unique days with entries</small>
+          </div>
+
+        </div>
+
+        <div class="card heart-card">
+          <div class="section-heading">
+            <div>
+              <div class="card-label">BRACELET · CHECKED BY THE ANALYTICS</div>
+              <h2>Heart rate</h2>
+            </div>
+            <div class="hr-ranges" role="group" aria-label="Time range">
+              <button type="button" data-minutes="1" aria-pressed="true">1 min</button>
+              <button type="button" data-minutes="15" aria-pressed="false">15 min</button>
+              <button type="button" data-minutes="60" aria-pressed="false">1 hour</button>
+              <button type="button" data-minutes="1440" aria-pressed="false">24 hours</button>
+            </div>
+          </div>
+          <div class="hr-meta" id="hr-meta"></div>
+          <div class="hr-tiles" id="hr-tiles"></div>
+          <div class="card-label" id="hr-chart-title">HEART RATE OVER TIME</div>
+          <div class="hr-chart-wrap" id="hr-chart-wrap">
+            <svg id="hr-chart" tabindex="0" role="img" aria-label="Heart rate over time"></svg>
+            <div class="hr-tooltip" id="hr-tooltip"></div>
+          </div>
+          <div class="hr-legend" id="hr-legend"></div>
+
+          <div class="hr-lower">
+            <div>
+              <div class="card-label">READING CHECKS</div>
+              <div class="hr-segbar" id="hr-segbar" role="img"></div>
+              <div class="hr-legend" id="hr-seg-legend"></div>
+              <p class="muted small" id="hr-late"></p>
+            </div>
+            <div>
+              <div class="card-label">WHY READINGS WERE LEFT OUT</div>
+              <ul class="hr-reasons" id="hr-reasons"></ul>
+            </div>
+          </div>
+
+          <details id="hr-details">
+            <summary>Show the numbers per minute</summary>
+            <table class="hr-table">
+              <thead><tr><th>Minute</th><th>Average</th><th>Lowest</th><th>Highest</th><th>Used</th><th>Left out</th></tr></thead>
+              <tbody id="hr-table-body"></tbody>
+            </table>
+          </details>
+        </div>
+
+        <div class="card" style="margin-bottom:20px">
+          <div class="section-heading">
+            <div>
+              <div class="card-label">FLASK BACKEND · SEPARATE FROM CHECK-INS</div>
+              <h2>Face and sensor session</h2>
+            </div>
+          </div>
+          <div id="backend-insights" class="card-description" role="status" aria-live="polite">
+            Loading backend session data…
+          </div>
+
+        </div>
+
+        <div class="grid">
+
+          <div class="card">
+            <div class="card-label">JOURNAL ACTIVITY</div>
+            <h2>Reflection lengths</h2>
+
+            <p class="card-description">
+              A breakdown of how much you tend to write.
+            </p>
+
+            <div id="distribution"></div>
+
+            <hr style="border:0;border-top:1px solid var(--border);margin:30px 0">
+
+            <div class="card-label">REFLECTIONS IN THE LAST 7 DAYS</div>
+
+            <div class="chart" id="insightsChart"></div>
+          </div>
+
+          <div class="stack">
+
+            <div class="card">
+              <div class="tip">
+                <div class="tip-icon">✦</div>
+
+                <div>
+                  <div class="card-label">A GENTLE SUGGESTION</div>
+                  <h2>Your next small step</h2>
+                  <p id="insightsTip"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">YOUR PROGRESS</div>
+              <h2>Every reflection counts.</h2>
+
+              <p class="card-description">
+                Writing down your experiences can help you notice
+                patterns in your everyday life.
+              </p>
+
+              <button class="btn btn-secondary" onclick="goTo('journal')">
+                Write a reflection →
+              </button>
+            </div>
+
+
+          </div>
+
+        </div>
+
+        <p class="disclaimer">
+          Insights show journal-writing activity, not inferred emotions.
+          This is not a medical or mental-health assessment.
+        </p>
+
+      </section>
+
+      <!-- WELLBEING ADVISOR -->
+      <section class="page" id="advisor">
+        <div class="eyebrow">Personalized guidance</div>
+        <h1>Wellbeing <em>advisor.</em></h1>
+        <p class="subtitle">
+          Get suggestions based on your saved journal reflections and available
+          backend readings. This is general wellbeing guidance, not a diagnosis.
+        </p>
+        <iframe
+          id="advisor-frame"
+          title="AI wellbeing advisor"
+          loading="lazy"
+          data-src="/advisor.html"
+          style="width:100%;height:min(850px,75vh);min-height:650px;border:1px solid var(--border);border-radius:18px;background:#1a1a24"
+        ></iframe>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================================
+// MOODPULSE FRONTEND
+// ========================================
+
+// Journal entries are loaded and saved through the account-specific database API.
+
+let currentUser = null;
+
+const scannerVideo = document.getElementById("scanner-video");
+const scannerCanvas = document.getElementById("scanner-canvas");
+const scannerContext = scannerCanvas.getContext("2d");
+const startScannerButton = document.getElementById("start-scanner-btn");
+const stopScannerButton = document.getElementById("stop-scanner-btn");
+let cameraStream = null;
+let scannerRunning = false;
+let scannerStarting = false;
+let scannerLoopId = 0;
+
+// LOAD SAVED ENTRIES
+async function loadEntries() {
+  const data = await requestJson("/api/journal");
+  if (!Array.isArray(data.entries)) {
+    throw new Error("The server returned an invalid journal response.");
+  }
+  return data.entries;
+}
+
+let entries = [];
+
+// PAGE NAVIGATION
+function showPage(pageName, button) {
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.remove("active");
+  });
+
+  document.getElementById(pageName).classList.add("active");
+
+  document.querySelectorAll(".nav button").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  if (button) button.classList.add("active");
+
+  const names = {
+    overview: "Overview",
+    journal: "Mood journal",
+    scanner: "Face preview",
+    insights: "Insights",
+    advisor: "Wellbeing advisor"
+  };
+
+  document.getElementById("pageName").textContent = names[pageName];
+
+  if (pageName === "advisor") {
+    const frame = document.getElementById("advisor-frame");
+    if (!frame.dataset.loaded) {
+      frame.src = frame.dataset.src;
+      frame.dataset.loaded = "true";
+    }
+  }
+
+  window.scrollTo(0, 0);
+}
+
+function goTo(pageName) {
+  const button = [...document.querySelectorAll(".nav button")]
+    .find(btn => btn.getAttribute("onclick").includes("'" + pageName + "'"));
+
+  showPage(pageName, button);
+}
+
+// CREATE AN ENTRY
+async function addEntry(note) {
+  try {
+    const data = await requestJson("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: note })
+    });
+    entries.unshift(data.entry);
+    entries = entries.slice(0, 300);
+    renderEverything();
+    showToast("Your entry has been saved!");
+    return true;
+  } catch (error) {
+    showToast(error.message || "Could not save journal entry.");
+    return false;
+  }
+}
+
+// DELETE ONE JOURNAL ENTRY
+async function deleteEntry(entryToDelete) {
+  if (!confirm("Delete this journal entry? This cannot be undone.")) return;
+  if (!entryToDelete.id) {
+    showToast("This entry cannot be deleted.");
+    return;
+  }
+
+  try {
+    await requestJson(`/api/journal/${entryToDelete.id}`, { method: "DELETE" });
+    entries = entries.filter(entry => entry !== entryToDelete);
+    renderEverything();
+    showToast("Journal entry deleted.");
+  } catch (error) {
+    showToast(error.message || "Could not delete journal entry.");
+  }
+}
+
+// SAVE QUICK CHECK-IN
+async function saveCheckin() {
+  const status = document.getElementById("quickStatus");
+  const note = document.getElementById("quickNote").value.trim();
+
+  if (!note) {
+    status.textContent = "Write a little about how you're feeling first.";
+    return;
+  }
+
+  if (await addEntry(note)) {
+    document.getElementById("quickNote").value = "";
+    status.textContent = "Your reflection has been saved ✓";
+  } else {
+    status.textContent = "Could not save your reflection.";
+  }
+}
+
+// SAVE JOURNAL ENTRY
+async function saveJournal() {
+  const note = document.getElementById("journalText").value.trim();
+  const status = document.getElementById("journalStatus");
+
+  if (!note) {
+    status.textContent = "Write something before saving.";
+    return;
+  }
+
+  if (await addEntry(note)) {
+    document.getElementById("journalText").value = "";
+    status.textContent = "Your reflection has been saved ✓";
+  } else {
+    status.textContent = "Could not save your reflection.";
+  }
+}
+
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (HTTP ${response.status}).`);
+  }
+  return data;
+}
+
+function setScannerControls() {
+  startScannerButton.disabled = scannerRunning || scannerStarting;
+  stopScannerButton.disabled = !scannerRunning;
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  scannerVideo.srcObject = null;
+}
+
+async function startScanner() {
+  if (scannerRunning || scannerStarting) return;
+  scannerStarting = true;
+  setScannerControls();
+  document.getElementById("scanLabel").textContent = "Starting camera…";
+  document.getElementById("scanDescription").textContent = "";
+
+  try {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Camera access requires a supported browser on localhost or HTTPS.");
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 960 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false
+    });
+    cameraStream.getVideoTracks().forEach(track => {
+      track.addEventListener("ended", () => {
+        if (scannerRunning) void stopScanner();
+      }, { once: true });
+    });
+    scannerVideo.srcObject = cameraStream;
+    await scannerVideo.play();
+
+    const session = await requestJson("/continue-session", { method: "POST" });
+    scannerRunning = true;
+    scannerStarting = false;
+    setScannerControls();
+    document.getElementById("scanLabel").textContent = "Connecting to expression model…";
+    document.getElementById("scanDescription").textContent =
+      session.already_active ? "Rejoined the active backend session." : "Camera session is active.";
+    const loopId = ++scannerLoopId;
+    void analyzeScannerLoop(loopId);
+  } catch (error) {
+    closeCamera();
+    scannerRunning = false;
+    scannerStarting = false;
+    setScannerControls();
+    document.getElementById("scanLabel").textContent = "Could not start camera session";
+    document.getElementById("scanDescription").textContent = error.message;
+  }
+}
+
+async function stopScanner() {
+  if (!scannerRunning) return;
+  scannerLoopId++;
+  scannerRunning = false;
+  scannerStarting = false;
+  closeCamera();
+  setScannerControls();
+  document.getElementById("scanLabel").textContent = "Camera stopped";
+  document.getElementById("scanDescription").textContent = "Stopping the backend session…";
+
+  try {
+    await requestJson("/stop-session", { method: "POST" });
+    document.getElementById("scanDescription").textContent = "Camera session stopped.";
+  } catch (error) {
+    document.getElementById("scanDescription").textContent =
+      `Camera stopped, but the backend session could not be stopped: ${error.message}`;
+  }
+  await refreshBackendInsights();
+}
+
+async function analyzeScannerFrame(loopId) {
+  if (scannerVideo.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+
+  const scale = Math.min(1, 960 / scannerVideo.videoWidth);
+  scannerCanvas.width = Math.round(scannerVideo.videoWidth * scale);
+  scannerCanvas.height = Math.round(scannerVideo.videoHeight * scale);
+  scannerContext.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+
+  const response = await fetch("/analyze-emotion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: scannerCanvas.toDataURL("image/jpeg", 0.8) })
+  });
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`The server returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (response.status === 409 && data.status === "inactive") {
+    if (scannerRunning && loopId === scannerLoopId) {
+      scannerRunning = false;
+      scannerLoopId++;
+      closeCamera();
+      setScannerControls();
+      document.getElementById("scanLabel").textContent = "Backend session ended";
+      document.getElementById("scanDescription").textContent =
+        "The camera session was stopped by the backend.";
+      void refreshBackendInsights();
+    }
+    return;
+  }
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (HTTP ${response.status}).`);
+  }
+  if (!scannerRunning || loopId !== scannerLoopId) return;
+
+  if (data.status !== "success") {
+    throw new Error(data.message || "The expression model could not analyze this frame.");
+  }
+  document.getElementById("scanLabel").textContent = data.emotion;
+  document.getElementById("scanDescription").textContent =
+    "Model output only; facial expressions are not a diagnosis or a reliable measure of how someone feels.";
+}
+
+async function analyzeScannerLoop(loopId) {
+  while (scannerRunning && loopId === scannerLoopId) {
+    const started = Date.now();
+    try {
+      await analyzeScannerFrame(loopId);
+    } catch (error) {
+      if (scannerRunning && loopId === scannerLoopId) {
+        document.getElementById("scanLabel").textContent = "Analysis unavailable";
+        document.getElementById("scanDescription").textContent = error.message;
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, 1000 - (Date.now() - started))));
+  }
+}
+
+// ===================================================================
+// HEART RATE CARD (Insights page)
+// Draws the data of /api/heart-history: the readings of the bracelet,
+// checked by the analytics. Everything is drawn as SVG by hand, so no
+// chart library is needed.
+// ===================================================================
+const HR = {
+  minutes: 1,           // selected time range (starts at 1 minute)
+  data: null,           // last answer from the backend
+  colors: {             // checked against colour blindness (dataviz validator)
+    line: "#baff75",    // the heart rate line (the page's green)
+    used: "#4fa832",    // reading passed the checks
+    leftOut: "#d55590", // reading was left out
+    none: "#253327"     // no reading (track colour)
+  },
+  reasons: {
+    sensor_error: ["Sensor error", "the bracelet reported a sensor error"],
+    poor_contact: ["Poor wrist contact", "the bracelet is not touching the skin well"],
+    ble_error: ["Bluetooth error", "the bracelet reported a Bluetooth error"],
+    impossible: ["Impossible value", "below 30 or above 220 bpm"],
+    duplicate: ["Sent twice", "same reading number and bracelet time as an earlier one"],
+    stuck: ["Sensor stuck", "exactly the same value 30 times in a row or more"]
+  }
+};
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(name, attributes = {}) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attributes)) el.setAttribute(key, value);
+  return el;
+}
+function clockTime(seconds, withSeconds = false) {
+  const d = new Date(seconds * 1000);
+  const parts = [d.getHours(), d.getMinutes()].concat(withSeconds ? [d.getSeconds()] : []);
+  return parts.map(n => String(n).padStart(2, "0")).join(":");
+}
+
+async function refreshHeartCard() {
+  const wrap = document.getElementById("hr-chart-wrap");
+  const minutes = HR.minutes;
+  try {
+    const data = await requestJson(`/api/heart-history?minutes=${minutes}`);
+    if (minutes !== HR.minutes) return;  // the range changed while loading
+    if (data.status !== "success") throw new Error(data.message || "unexpected answer");
+    HR.data = data;
+    renderHeartCard();
+  } catch (error) {
+    document.getElementById("hr-meta").textContent = `Heart-rate data unavailable: ${error.message}`;
+  } finally {
+    wrap.classList.remove("loading");
+  }
+}
+
+function renderHeartCard() {
+  const data = HR.data;
+  if (!data) return;
+  const s = data.summary;
+  renderHeartMeta(data);
+  renderHeartTiles(s);
+  renderHeartLine(data);
+  renderHeartChecks(s);
+  if (document.getElementById("hr-details").open) renderHeartTable(data);
+}
+
+// ---------- 1. the line above the tiles: test data, battery, time range ----------
+function renderHeartMeta(data) {
+  const meta = document.getElementById("hr-meta");
+  const items = [];
+  const badge = (text, extra = "") => {
+    const span = document.createElement("span");
+    span.className = `hr-badge ${extra}`;
+    span.textContent = text;
+    items.push(span);
+  };
+  if (data.end === null) {
+    badge("No heart-rate readings yet. Connect your bracelet on the Face preview page.");
+  } else {
+    const range = { 1: "minute", 15: "15 minutes", 60: "hour", 1440: "24 hours" }[data.minutes];
+    badge(`Last ${range} of data, up to ${clockTime(data.end)}`);
+    if (data.summary.test_data) badge("Simulated test data", "test");
+    if (data.summary.battery !== undefined) badge(`Bracelet battery ${data.summary.battery}%`);
+  }
+  meta.replaceChildren(...items);
+}
+
+// ---------- 2. the four numbers ----------
+function renderHeartTiles(s) {
+  const tiles = [
+    ["Latest", s.enough_data ? `${Math.round(s.latest)}` : "–", "bpm"],
+    ["Average", s.enough_data ? `${s.average}` : "–", "bpm"],
+    ["Lowest – highest", s.enough_data ? `${Math.round(s.min)} – ${Math.round(s.max)}` : "–", "bpm"],
+    ["Readings used", `${s.used}`, `of ${s.used + s.removed + s.lost} expected`]
+  ];
+  document.getElementById("hr-tiles").replaceChildren(...tiles.map(([label, value, unit]) => {
+    const tile = document.createElement("div");
+    tile.className = "hr-tile";
+    const l = document.createElement("span"); l.textContent = label;
+    const v = document.createElement("strong"); v.textContent = value;
+    const u = document.createElement("small"); u.textContent = unit;
+    tile.append(l, v, u);
+    return tile;
+  }));
+}
+
+// ---------- 3. the line chart + the check strip under it ----------
+function niceTimeStep(totalSeconds) {
+  const steps = [10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600];
+  return steps.find(step => totalSeconds / step <= 7) || 21600;
+}
+
+function renderHeartLine(data) {
+  const svg = document.getElementById("hr-chart");
+  const tooltip = document.getElementById("hr-tooltip");
+  svg.replaceChildren();
+  tooltip.style.display = "none";
+  const width = Math.max(320, svg.parentElement.clientWidth);
+  const height = 270;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("height", height);
+
+  const perReading = data.minutes <= 15;
+  document.getElementById("hr-chart-title").textContent = perReading
+    ? "HEART RATE OVER TIME · EVERY READING THAT PASSED THE CHECKS"
+    : "HEART RATE OVER TIME · AVERAGE PER MINUTE, SHADED: LOWEST TO HIGHEST";
+  renderHeartLegend(perReading);
+  if (data.end === null) return;
+
+  // Points to draw: each usable reading (15 min) or each minute (1 h, 24 h)
+  const points = perReading
+    ? data.readings.filter(r => r.check === "usable").map(r => ({ t: r.t, v: r.bpm }))
+    : data.per_minute.filter(m => m.average !== null)
+        .map(m => ({ t: m.minute + 30, v: m.average, lo: m.min, hi: m.max, m }));
+
+  const m = { left: 40, right: 56, top: 26, bottom: 64 };
+  const plotBottom = height - m.bottom;
+  const x0 = data.start, x1 = data.end;
+  const x = t => m.left + (t - x0) / (x1 - x0) * (width - m.left - m.right);
+
+  // y axis: rounded to steps of 20 bpm around the data
+  const values = points.flatMap(p => [p.lo ?? p.v, p.hi ?? p.v]);
+  let lo = values.length ? Math.floor((Math.min(...values) - 5) / 20) * 20 : 40;
+  let hi = values.length ? Math.ceil((Math.max(...values) + 5) / 20) * 20 : 120;
+  lo = Math.max(0, lo);
+  if (hi - lo < 60) hi = lo + 60;
+  const yStep = hi - lo > 140 ? 40 : 20;
+  const y = v => plotBottom - (v - lo) / (hi - lo) * (plotBottom - m.top);
+
+  for (let v = lo; v <= hi; v += yStep) {
+    svg.append(svgEl("line", { x1: m.left, x2: width - m.right, y1: y(v), y2: y(v), class: "hr-grid" }));
+    const label = svgEl("text", { x: m.left - 8, y: y(v) + 4, "text-anchor": "end", class: "hr-axis" });
+    label.textContent = v;
+    svg.append(label);
+  }
+  const unit = svgEl("text", { x: m.left - 8, y: 10, "text-anchor": "end", class: "hr-axis" });
+  unit.textContent = "bpm";
+  svg.append(unit);
+
+  // time labels on round minutes / hours
+  const step = niceTimeStep(x1 - x0);
+  const offset = new Date().getTimezoneOffset() * 60;   // round in local time
+  for (let t = Math.ceil((x0 - offset) / step) * step + offset; t <= x1; t += step) {
+    svg.append(svgEl("line", { x1: x(t), x2: x(t), y1: plotBottom, y2: plotBottom + 4, class: "hr-grid" }));
+    const label = svgEl("text", { x: x(t), y: plotBottom + 17, "text-anchor": "middle", class: "hr-axis" });
+    label.textContent = clockTime(t, step < 60);   // show seconds on the 1-minute view
+    svg.append(label);
+  }
+
+  // Split the line where there is no data, so gaps stay visible
+  const maxGap = perReading ? 5 : 90;
+  const segments = [];
+  points.forEach((p, i) => {
+    if (i === 0 || p.t - points[i - 1].t > maxGap) segments.push([]);
+    segments[segments.length - 1].push(p);
+  });
+  for (const seg of segments) {
+    if (!perReading) {   // lowest-to-highest band, a light wash behind the line
+      const band = seg.map(p => `${x(p.t)},${y(p.hi)}`)
+        .concat(seg.slice().reverse().map(p => `${x(p.t)},${y(p.lo)}`));
+      svg.append(svgEl("polygon", { points: band.join(" "), fill: HR.colors.line, opacity: 0.12 }));
+    }
+    if (seg.length === 1) {
+      svg.append(svgEl("circle", { cx: x(seg[0].t), cy: y(seg[0].v), r: 2.5, fill: HR.colors.line }));
+    } else {
+      svg.append(svgEl("polyline", {
+        points: seg.map(p => `${x(p.t)},${y(p.v)}`).join(" "), fill: "none",
+        stroke: HR.colors.line, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round"
+      }));
+    }
+  }
+
+  // The latest value: a dot with its number at the end of the line
+  if (points.length) {
+    const last = points[points.length - 1];
+    svg.append(svgEl("circle", { cx: x(last.t), cy: y(last.v), r: 5, fill: HR.colors.line,
+                                 stroke: "#171e18", "stroke-width": 2 }));
+    const label = svgEl("text", { x: x(last.t) + 9, y: y(last.v) + 4, fill: "#f1f7f0", "font-size": 12, "font-weight": 600 });
+    label.textContent = `${Math.round(last.v)}`;
+    svg.append(label);
+  }
+
+  // Check strip: one row under the chart that shows, for each moment, if the
+  // reading was used (green), left out (pink, taller) or missing (empty)
+  const stripY = plotBottom + 32;
+  const stripLabel = svgEl("text", { x: m.left - 8, y: stripY + 8, "text-anchor": "end", class: "hr-axis" });
+  stripLabel.textContent = "checks";
+  svg.append(stripLabel, svgEl("rect", { x: m.left, y: stripY, width: width - m.left - m.right, height: 10,
+                                         rx: 2, fill: HR.colors.none }));
+  const slot = perReading ? 1 : 60;
+  const slotWidth = Math.max(1, x(x0 + slot) - x(x0));
+  const marks = perReading
+    ? data.readings.map(r => ({ t: r.t, bad: r.check !== "usable", good: r.check === "usable" }))
+    : data.per_minute.map(mm => ({ t: mm.minute, bad: mm.removed > 0, good: mm.used > 0 }));
+  // Used readings next to each other are drawn as one block
+  const runs = [];
+  for (const mark of marks.filter(mk => mk.good).sort((a, b) => a.t - b.t)) {
+    const run = runs[runs.length - 1];
+    if (run && mark.t - run.end <= slot * 1.5) run.end = mark.t;
+    else runs.push({ start: mark.t, end: mark.t });
+  }
+  for (const run of runs) {
+    const left = Math.max(m.left, x(run.start));
+    const right = Math.min(width - m.right, x(run.end) + slotWidth);   // never past the chart
+    svg.append(svgEl("rect", { x: left, y: stripY + 1, width: Math.max(1, right - left),
+                               height: 8, fill: HR.colors.used }));
+  }
+  for (const mark of marks) {   // drawn last, so they are never hidden
+    const left = Math.max(m.left, x(mark.t));
+    if (mark.bad) svg.append(svgEl("rect", { x: Math.min(left, width - m.right - 3), y: stripY - 3,
+                                             width: Math.max(3, Math.min(slotWidth, width - m.right - left)), height: 16,
+                                             rx: 1, fill: HR.colors.leftOut }));
+  }
+
+  // Hover / keyboard: a vertical line that snaps to the nearest reading or minute
+  const targets = perReading
+    ? data.readings.map(r => ({ t: r.t, r }))
+    : data.per_minute.map(mm => ({ t: mm.minute + 30, mm }));
+  const cross = svgEl("line", { y1: m.top, y2: plotBottom, stroke: "#8a9a8c", "stroke-width": 1, visibility: "hidden" });
+  const dot = svgEl("circle", { r: 5, fill: HR.colors.line, stroke: "#171e18", "stroke-width": 2, visibility: "hidden" });
+  const hit = svgEl("rect", { x: m.left, y: 0, width: width - m.left - m.right, height: stripY + 16, fill: "transparent" });
+  svg.append(cross, dot, hit);
+
+  let current = targets.length - 1;
+  const show = index => {
+    if (!targets.length) return;
+    current = Math.max(0, Math.min(targets.length - 1, index));
+    const target = targets[current];
+    const px = x(target.t);
+    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
+    const lines = [];
+    let value = null;
+    if (target.r) {
+      const ok = target.r.check === "usable";
+      if (ok) value = target.r.bpm;
+      lines.push([ok ? `${Math.round(target.r.bpm)} bpm` : `${target.r.bpm ?? "?"} bpm — left out`, true]);
+      lines.push([ok ? "Used" : (HR.reasons[target.r.check] || [target.r.check])[0], false]);
+      lines.push([clockTime(target.t, true), false]);
+    } else {
+      const mm = target.mm;
+      value = mm.average;
+      lines.push([mm.average === null ? "No usable readings" : `${mm.average} bpm average`, true]);
+      if (mm.average !== null) lines.push([`lowest ${mm.min}, highest ${mm.max}`, false]);
+      lines.push([`${mm.used} used, ${mm.removed} left out`, false]);
+      lines.push([`${clockTime(mm.minute)}–${clockTime(mm.minute + 60)}`, false]);
+    }
+    if (value !== null) {
+      dot.setAttribute("cx", px); dot.setAttribute("cy", y(value)); dot.setAttribute("visibility", "visible");
+    } else {
+      dot.setAttribute("visibility", "hidden");
+    }
+    tooltip.replaceChildren(...lines.map(([text, strong]) => {
+      const el = document.createElement(strong ? "strong" : "div");
+      el.textContent = text;
+      return el;
+    }));
+    const scale = svg.clientWidth / width;
+    tooltip.style.left = `${Math.min(Math.max(px * scale, 90), svg.clientWidth - 90)}px`;
+    tooltip.style.top = `${(value !== null ? y(value) : m.top + 40) * scale - 10}px`;
+    tooltip.style.display = "block";
+  };
+  const hide = () => {
+    cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden");
+    tooltip.style.display = "none";
+  };
+  hit.addEventListener("pointermove", event => {
+    const rect = svg.getBoundingClientRect();
+    const t = x0 + ((event.clientX - rect.left) * width / rect.width - m.left) / (width - m.left - m.right) * (x1 - x0);
+    let best = 0;
+    targets.forEach((target, i) => { if (Math.abs(target.t - t) < Math.abs(targets[best].t - t)) best = i; });
+    show(best);
+  });
+  hit.addEventListener("pointerleave", hide);
+  svg.onfocus = () => show(current);
+  svg.onblur = hide;
+  svg.onkeydown = event => {
+    if (event.key === "ArrowLeft") { show(current - 1); event.preventDefault(); }
+    if (event.key === "ArrowRight") { show(current + 1); event.preventDefault(); }
+  };
+  svg.setAttribute("aria-label",
+    `Heart rate from ${clockTime(x0)} to ${clockTime(x1)}. Use the left and right arrow keys to read the values.`);
+}
+
+function renderHeartLegend(perReading) {
+  const legend = document.getElementById("hr-legend");
+  const item = (color, text, cls = "") => {
+    const span = document.createElement("span");
+    const key = document.createElement("i");
+    if (cls) key.className = cls; else key.style.background = color;
+    span.append(key, document.createTextNode(text));
+    return span;
+  };
+  legend.replaceChildren(
+    item(HR.colors.used, perReading ? "Checks: reading used" : "Checks: minute with readings used"),
+    item(HR.colors.leftOut, perReading ? "reading left out" : "minute with readings left out"),
+    item(null, "no reading", "empty"));
+}
+
+// ---------- 4. how many readings were used / left out / never arrived ----------
+function renderHeartChecks(s) {
+  const parts = [
+    ["Used", s.used, HR.colors.used, "#0b0b0b"],
+    ["Left out", s.removed, HR.colors.leftOut, "#ffffff"],
+    ["Never arrived", s.lost, "#6b7a6d", "#ffffff"]
+  ];
+  const total = parts.reduce((sum, p) => sum + p[1], 0);
+  const bar = document.getElementById("hr-segbar");
+  const legend = document.getElementById("hr-seg-legend");
+  bar.replaceChildren(); legend.replaceChildren();
+  if (total === 0) {
+    bar.setAttribute("aria-label", "No readings");
+    document.getElementById("hr-late").textContent = "";
+    document.getElementById("hr-reasons").replaceChildren();
+    return;
+  }
+  const described = [];
+  for (const [name, count, color, ink] of parts) {
+    const share = Math.round(count / total * 100);
+    described.push(`${name}: ${count} (${share}%)`);
+    if (count > 0) {
+      const block = document.createElement("div");
+      block.style.flex = `${count} 0 0`;
+      block.style.background = color;
+      block.style.color = ink;
+      block.title = `${name}: ${count} readings (${share}%)`;
+      if (count / total > 0.12) block.textContent = `${share}%`;
+      bar.append(block);
+    }
+    const span = document.createElement("span");
+    const key = document.createElement("i");
+    key.style.background = color;
+    span.append(key, document.createTextNode(`${name} ${count}`));
+    legend.append(span);
+  }
+  bar.setAttribute("aria-label", described.join(", "));
+
+  document.getElementById("hr-late").textContent = s.late > 0
+    ? `${s.late} readings were marked as buffered or arrived more than 5 seconds late. Their measurement times are estimated from bracelet uptime.`
+    : "";
+
+  const list = document.getElementById("hr-reasons");
+  const rows = Object.entries(HR.reasons).map(([key, [title, rule]]) => {
+    const li = document.createElement("li");
+    const text = document.createElement("div");
+    const strong = document.createElement("strong");
+    strong.textContent = title;
+    const small = document.createElement("small");
+    small.textContent = ` — ${rule}`;
+    text.append(strong, small);
+    const count = document.createElement("span");
+    count.textContent = s.removed_why[key] || 0;
+    li.append(text, count);
+    return li;
+  });
+  const lost = document.createElement("li");
+  lost.innerHTML = "<div><strong>Never arrived</strong><small> — reading numbers missing in the sequence</small></div>";
+  const lostCount = document.createElement("span");
+  lostCount.textContent = s.lost;
+  lost.append(lostCount);
+  list.replaceChildren(...rows, lost);
+}
+
+// ---------- 5. the numbers as a table (only built when opened) ----------
+function renderHeartTable(data) {
+  const body = document.getElementById("hr-table-body");
+  const cell = text => { const td = document.createElement("td"); td.textContent = text; return td; };
+  body.replaceChildren(...data.per_minute.slice().reverse().map(mm => {
+    const tr = document.createElement("tr");
+    tr.append(cell(clockTime(mm.minute)), cell(mm.average ?? "–"), cell(mm.min ?? "–"),
+              cell(mm.max ?? "–"), cell(mm.used), cell(mm.removed));
+    return tr;
+  }));
+}
+
+document.querySelectorAll(".hr-ranges button").forEach(button => {
+  button.addEventListener("click", () => {
+    HR.minutes = Number(button.dataset.minutes);
+    document.querySelectorAll(".hr-ranges button").forEach(b =>
+      b.setAttribute("aria-pressed", String(b === button)));
+    document.getElementById("hr-chart-wrap").classList.add("loading");
+    void refreshHeartCard();
+  });
+});
+document.getElementById("hr-details").addEventListener("toggle", () => {
+  if (HR.data && document.getElementById("hr-details").open) renderHeartTable(HR.data);
+});
+// Redraw when the chart gets a new width (window resized, or the Insights
+// page was opened: while it is hidden the chart has no width).
+let hrLastWidth = 0;
+new ResizeObserver(entries => {
+  const width = Math.round(entries[0].contentRect.width);
+  if (width > 0 && width !== hrLastWidth) {
+    hrLastWidth = width;
+    renderHeartLine(HR.data || { end: null, minutes: HR.minutes });
+    if (HR.data) renderHeartCard();
+  }
+}).observe(document.getElementById("hr-chart-wrap"));
+
+async function refreshBackendInsights() {
+  const container = document.getElementById("backend-insights");
+  try {
+    void refreshHeartCard();   // the heart-rate card has its own data
+    const [summary, sensorData] = await Promise.all([
+      requestJson("/emotion-summary"),
+      requestJson("/api/sensors")
+    ]);
+    if (summary.status !== "success" || sensorData.status !== "success") {
+      throw new Error("The backend returned an unexpected data status.");
+    }
+
+    const rows = [];
+    const addRow = (label, value) => {
+      const row = document.createElement("p");
+      row.className = "card-description";
+      const strong = document.createElement("strong");
+      strong.textContent = `${label}: `;
+      row.append(strong, document.createTextNode(value));
+      rows.push(row);
+    };
+
+    addRow("Camera session", summary.active ? "Running" : "Stopped");
+    addRow("Session duration", `${Math.floor(summary.duration_seconds / 60)}m ${summary.duration_seconds % 60}s`);
+    addRow("Expression samples", String(summary.total_records));
+    if (summary.dominant_emotion) {
+      addRow("Most frequent expression", `${summary.dominant_emotion} (${summary.summary[summary.dominant_emotion]}%)`);
+    }
+    if (summary.total_records === 0) {
+      addRow("Expression details", "Start a camera session to collect samples.");
+    } else {
+      for (const [emotion, percentage] of Object.entries(summary.summary)) {
+        addRow(emotion, `${percentage}%`);
+      }
+    }
+
+    // The heart rate is shown in its own card (see refreshHeartCard)
+    const readings = sensorData.readings || [];
+    const conductance = readings.filter(reading => reading.type === "skin_conductance");
+    if (conductance.length) {
+      addRow("Latest skin conductance", `${conductance[conductance.length - 1].value} µS`);
+    }
+
+    container.replaceChildren(...rows);
+  } catch (error) {
+    container.textContent = `Backend data unavailable: ${error.message}`;
+  }
+}
+
+// DATE HELPER
+function getLocalDate(value) {
+  const date = new Date(value);
+
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+// DISPLAY JOURNAL ENTRIES
+function renderEntryList(elementId, list) {
+  const container = document.getElementById(elementId);
+
+  container.replaceChildren();
+
+  if (list.length === 0) {
+    container.textContent = "No entries yet.";
+    return;
+  }
+
+  list.forEach(entry => {
+    const card = document.createElement("div");
+    card.className = "entry";
+
+    const header = document.createElement("div");
+    header.className = "entry-header";
+
+    const name = document.createElement("strong");
+    name.textContent = "Reflection";
+
+    header.append(name);
+
+    const date = document.createElement("span");
+    date.className = "entry-date";
+    date.textContent = new Date(entry.date).toLocaleDateString();
+    header.append(date);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "entry-delete";
+    deleteButton.textContent = "Delete";
+    deleteButton.setAttribute("aria-label", `Delete journal entry from ${date.textContent}`);
+    deleteButton.addEventListener("click", () => deleteEntry(entry));
+    header.append(deleteButton);
+
+    const note = document.createElement("p");
+    note.textContent = entry.note || "This earlier check-in had no written note.";
+
+    card.append(header, note);
+    container.append(card);
+  });
+}
+
+// CREATE WEEKLY CHART
+function renderChart(elementId) {
+  const chart = document.getElementById(elementId);
+  chart.replaceChildren();
+
+  const today = new Date();
+  const days = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - offset);
+    const count = entries.filter(entry =>
+      getLocalDate(entry.date) === getLocalDate(day)
+    ).length;
+    days.push({ day, count });
+  }
+
+  const maxCount = Math.max(1, ...days.map(item => item.count));
+
+  days.forEach(({ day, count }) => {
+    const column = document.createElement("div");
+    column.className = "chart-column";
+    column.title = `${count} reflection${count === 1 ? "" : "s"}`;
+
+    const track = document.createElement("div");
+    track.className = "chart-track";
+
+    const fill = document.createElement("div");
+    fill.className = "chart-fill";
+    fill.style.height = (count / maxCount * 100) + "%";
+    track.append(fill);
+
+    const label = document.createElement("small");
+    label.textContent = day.toLocaleDateString("en", { weekday: "short" });
+    column.append(track, label);
+    chart.append(column);
+  });
+}
+
+// PERSONALIZED SUGGESTIONS
+function getSuggestion() {
+  return "Take a moment to name what affected you today, and what you might need next.";
+}
+
+// REFLECTION LENGTHS
+function renderDistribution() {
+  const container = document.getElementById("distribution");
+  container.replaceChildren();
+
+  const wordCount = note => (note || "").trim().split(/\s+/).filter(Boolean).length;
+  const groups = [
+    { label: "Short", count: entries.filter(entry => wordCount(entry.note) <= 20).length },
+    { label: "Medium", count: entries.filter(entry => wordCount(entry.note) > 20 && wordCount(entry.note) <= 60).length },
+    { label: "Detailed", count: entries.filter(entry => wordCount(entry.note) > 60).length }
+  ];
+
+  groups.forEach(group => {
+    const percentage = entries.length ? group.count / entries.length * 100 : 0;
+    const row = document.createElement("div");
+    row.className = "distribution-row";
+
+    const label = document.createElement("span");
+    label.textContent = group.label;
+
+    const track = document.createElement("div");
+    track.className = "distribution-track";
+    const fill = document.createElement("div");
+    fill.className = "distribution-fill";
+    fill.style.width = percentage + "%";
+    track.append(fill);
+
+    const value = document.createElement("span");
+    value.textContent = group.count;
+    row.append(label, track, value);
+    container.append(row);
+  });
+}
+
+// UPDATE ALL DASHBOARD COMPONENTS
+function renderEverything() {
+  document.getElementById("checkinCount").textContent = entries.length;
+  document.getElementById("insightsCount").textContent = entries.length;
+
+  document.getElementById("journalCount").textContent =
+    entries.length + " entries";
+
+  const uniqueDays = new Set(
+    entries.map(entry => getLocalDate(entry.date))
+  );
+
+  document.getElementById("trackedDays").textContent = uniqueDays.size;
+
+  const wordsWritten = entries.reduce((total, entry) => {
+    return total + (entry.note || "").trim().split(/\s+/).filter(Boolean).length;
+  }, 0);
+  document.getElementById("wordCount").textContent = wordsWritten;
+
+  renderEntryList("recentEntries", entries.slice(0, 2));
+  renderEntryList("allEntries", entries);
+
+  renderChart("overviewChart");
+  renderChart("insightsChart");
+  renderDistribution();
+
+  const suggestion = getSuggestion();
+
+  document.getElementById("overviewTip").textContent = suggestion;
+  document.getElementById("insightsTip").textContent = suggestion;
+}
+
+// NOTIFICATION
+function showToast(message) {
+  const toast = document.getElementById("toast");
+
+  toast.textContent = message;
+  toast.style.display = "block";
+
+  clearTimeout(window.toastTimer);
+
+  window.toastTimer = setTimeout(() => {
+    toast.style.display = "none";
+  }, 3000);
+}
+
+// INITIAL LOAD
+async function initializeDashboard() {
+  let data;
+  try {
+    data = await requestJson("/api/auth/me");
+  } catch (error) {
+    window.location.href = "/login";
+    return;
+  }
+
+  currentUser = data.user;
+  try {
+    entries = await loadEntries();
+  } catch (error) {
+    entries = [];
+    console.error("Could not load database journal entries.", error);
+    showToast(`Could not load journal entries: ${error.message}`);
+  }
+
+  document.getElementById("account-name").textContent = currentUser.name;
+  renderEverything();
+  await refreshBackendInsights();
+  window.setInterval(refreshBackendInsights, 5000);
+}
+
+document.getElementById("logout-button").addEventListener("click", async () => {
+  try {
+    await requestJson("/api/auth/logout", { method: "POST" });
+  } catch (error) {
+    showToast(`Could not sign out: ${error.message}`);
+    return;
+  }
+  window.location.href = "/login";
+});
+
+void initializeDashboard();
+window.addEventListener("pagehide", () => {
+  if (scannerRunning) {
+    scannerLoopId++;
+    scannerRunning = false;
+    closeCamera();
+    navigator.sendBeacon("/stop-session");
+  }
+});
+
+</script>
+<script src="/bracelet.js"></script>
+
+</body>
+</html>
