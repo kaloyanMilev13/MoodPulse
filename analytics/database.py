@@ -24,12 +24,18 @@ CREATE TABLE IF NOT EXISTS public.users (
     gender VARCHAR(30),
     height_cm DOUBLE PRECISION,
     weight_kg DOUBLE PRECISION,
+    data_processing_consent BOOLEAN NOT NULL DEFAULT FALSE,
+    data_processing_consent_at TIMESTAMPTZ,
+    data_processing_consent_version VARCHAR(32),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS age SMALLINT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS gender VARCHAR(30);
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS height_cm DOUBLE PRECISION;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS weight_kg DOUBLE PRECISION;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS data_processing_consent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS data_processing_consent_at TIMESTAMPTZ;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS data_processing_consent_version VARCHAR(32);
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx ON public.users (lower(email));
 
 CREATE TABLE IF NOT EXISTS public.devices (
@@ -204,16 +210,18 @@ def database_url():
     return os.environ.get("DATABASE_URL") or None
 
 
-def create_user(name, email, password_hash, age, gender, height_cm, weight_kg):
+def create_user(name, email, password_hash, age, gender, height_cm, weight_kg, consent_version):
     """Create an account, returning None when its email is already registered."""
     with connect() as db:
         return db.execute(
             "INSERT INTO public.users"
-            " (name, email, password_hash, age, gender, height_cm, weight_kg)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            " (name, email, password_hash, age, gender, height_cm, weight_kg,"
+            "  data_processing_consent, data_processing_consent_at, data_processing_consent_version)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP, %s)"
             " ON CONFLICT DO NOTHING"
-            " RETURNING id, name, email, age, gender, height_cm, weight_kg",
-            (name, email, password_hash, age, gender, height_cm, weight_kg),
+            " RETURNING id, name, email, age, gender, height_cm, weight_kg,"
+            " data_processing_consent, data_processing_consent_at, data_processing_consent_version",
+            (name, email, password_hash, age, gender, height_cm, weight_kg, consent_version),
         ).fetchone()
 
 
@@ -221,7 +229,8 @@ def user_by_email(email):
     """Find an account by case-insensitive email address."""
     with connect() as db:
         return db.execute(
-            "SELECT id, name, email, password_hash, age, gender, height_cm, weight_kg"
+            "SELECT id, name, email, password_hash, age, gender, height_cm, weight_kg,"
+            " data_processing_consent, data_processing_consent_at, data_processing_consent_version"
             " FROM public.users WHERE lower(email) = %s",
             (email.lower(),),
         ).fetchone()
@@ -240,7 +249,8 @@ def user_by_id(user_id):
     """Return public account fields, excluding the password hash."""
     with connect() as db:
         return db.execute(
-            "SELECT id, name, email, age, gender, height_cm, weight_kg"
+            "SELECT id, name, email, age, gender, height_cm, weight_kg,"
+            " data_processing_consent, data_processing_consent_at, data_processing_consent_version"
             " FROM public.users WHERE id = %s",
             (user_id,),
         ).fetchone()
