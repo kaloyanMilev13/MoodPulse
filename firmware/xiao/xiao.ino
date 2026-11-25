@@ -101,7 +101,7 @@ void setup() {
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
   //Init and start  Bluetooth
-  if (!initNimBLE("XIAO ESP32-C3")) {
+  if (!initNimBLE(UNIT_NAME)) {
     payload.flags |= FLAG_BLE_ERROR;
   } else {
     payload.flags &= ~FLAG_BLE_ERROR;

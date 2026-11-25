@@ -121,6 +121,10 @@ bool initNimBLE(const char* deviceName) {
   pAdvertising->addServiceUUID(NUS_SERVICE_UUID);
   pAdvertising->addServiceUUID(BAS_SERVICE_UUID);
   pAdvertising->enableScanResponse(true);
+
+  //specify the exact name to be displyed
+  pAdvertising->setName(deviceName);
+
   //set the timig interval between advertising chirps, fast and slow
   pAdvertising->setMinInterval(32);  // 20 ms (32 * 0.625 ms)
   pAdvertising->setMaxInterval(244); // 152.5 ms (244 * 0.625 ms)

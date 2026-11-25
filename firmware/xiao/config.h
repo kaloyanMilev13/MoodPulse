@@ -22,6 +22,9 @@
 //how often a new payload is made and pushed in the buffer, the sensor itself is read much faster than this
 #define SAMPLE_TIME_MS 1000
 
+//name of the bracelet/noard to be displayed while advertising itself
+#define UNIT_NAME "MoodPulse Bracelet"
+
 //true = fake bpm that goes from 40 to 180, so you can test the bluetooth and the backend without the sensor
 #define SIMULATE_SENSOR false
 
