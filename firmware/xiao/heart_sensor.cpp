@@ -19,7 +19,8 @@ bool initHeartSensor() {
     return false;
   }
 
-  particleSensor.setup();
+  //particleSensor.setup();
+  particleSensor.setup(0x1F, 4, 2, 400, 411, 4096); //red + IR mode 
   sensorReady = true;
   return true;
 }
