@@ -732,7 +732,7 @@ textarea::placeholder { color: #718174; }
         </button>
 
         <button onclick="showPage('advisor', this)">
-          <span>✦</span> AI wellbeing advisor
+          <span>✦</span> Pattern explorer
         </button>
       </nav>
     </div>
@@ -1173,15 +1173,16 @@ textarea::placeholder { color: #718174; }
 
       <!-- WELLBEING ADVISOR -->
       <section class="page" id="advisor">
-        <div class="eyebrow">Personalized guidance</div>
-        <h1>Wellbeing <em>advisor.</em></h1>
+        <div class="eyebrow">Explore your data</div>
+        <h1>Notice your <em>patterns.</em></h1>
         <p class="subtitle">
-          Get suggestions based on your saved journal reflections and available
-          backend readings. This is general wellbeing guidance, not a diagnosis.
+          Explore how your recorded heart-rate readings, facial-expression labels,
+          and journal reflections vary over a selected time range. These observations
+          are not health advice or a diagnosis.
         </p>
         <iframe
           id="advisor-frame"
-          title="AI wellbeing advisor"
+          title="AI pattern explorer"
           loading="lazy"
           data-src="/advisor.html"
           style="width:100%;height:min(850px,75vh);min-height:650px;border:1px solid var(--border);border-radius:18px;background:#1a1a24"
@@ -1243,7 +1244,7 @@ function showPage(pageName, button) {
     journal: "Mood journal",
     scanner: "Face preview",
     insights: "Insights",
-    advisor: "Wellbeing advisor"
+    advisor: "Pattern explorer"
   };
 
   document.getElementById("pageName").textContent = names[pageName];
@@ -1251,8 +1252,13 @@ function showPage(pageName, button) {
   if (pageName === "advisor") {
     const frame = document.getElementById("advisor-frame");
     if (!frame.dataset.loaded) {
-      frame.src = frame.dataset.src;
+      frame.src = `${frame.dataset.src}?minutes=${HR.minutes}`;
       frame.dataset.loaded = "true";
+    } else if (frame.contentWindow) {
+      frame.contentWindow.postMessage(
+        { type: "moodpulse-period", minutes: HR.minutes },
+        window.location.origin
+      );
     }
   }
 
@@ -1884,11 +1890,31 @@ function renderHeartTable(data) {
 document.querySelectorAll(".hr-ranges button").forEach(button => {
   button.addEventListener("click", () => {
     HR.minutes = Number(button.dataset.minutes);
+    sessionStorage.setItem("moodpulse_insights_minutes", String(HR.minutes));
     document.querySelectorAll(".hr-ranges button").forEach(b =>
       b.setAttribute("aria-pressed", String(b === button)));
     document.getElementById("hr-chart-wrap").classList.add("loading");
     void refreshHeartCard();
+    const frame = document.getElementById("advisor-frame");
+    if (frame.dataset.loaded && frame.contentWindow) {
+      frame.contentWindow.postMessage(
+        { type: "moodpulse-period", minutes: HR.minutes },
+        window.location.origin
+      );
+    }
   });
+});
+window.addEventListener("message", event => {
+  const frame = document.getElementById("advisor-frame");
+  if (
+    event.origin !== window.location.origin
+    || event.source !== frame.contentWindow
+    || event.data?.type !== "moodpulse-period-selection"
+  ) return;
+  const minutes = Number(event.data.minutes);
+  const button = [...document.querySelectorAll(".hr-ranges button")]
+    .find(option => Number(option.dataset.minutes) === minutes);
+  if (button) button.click();
 });
 document.getElementById("hr-details").addEventListener("toggle", () => {
   if (HR.data && document.getElementById("hr-details").open) renderHeartTable(HR.data);
@@ -1930,8 +1956,8 @@ async function refreshBackendInsights() {
     addRow("Camera session", summary.active ? "Running" : "Stopped");
     addRow("Session duration", `${Math.floor(summary.duration_seconds / 60)}m ${summary.duration_seconds % 60}s`);
     addRow("Expression samples", String(summary.total_records));
-    if (summary.dominant_emotion) {
-      addRow("Most frequent expression", `${summary.dominant_emotion} (${summary.summary[summary.dominant_emotion]}%)`);
+    if (summary.dominant_label) {
+      addRow("Most frequent facial-expression label", `${summary.dominant_label} (${summary.summary[summary.dominant_label]}%)`);
     }
     if (summary.total_records === 0) {
       addRow("Expression details", "Start a camera session to collect samples.");
@@ -1939,13 +1965,6 @@ async function refreshBackendInsights() {
       for (const [emotion, percentage] of Object.entries(summary.summary)) {
         addRow(emotion, `${percentage}%`);
       }
-    }
-
-    // The heart rate is shown in its own card (see refreshHeartCard)
-    const readings = sensorData.readings || [];
-    const conductance = readings.filter(reading => reading.type === "skin_conductance");
-    if (conductance.length) {
-      addRow("Latest skin conductance", `${conductance[conductance.length - 1].value} µS`);
     }
 
     container.replaceChildren(...rows);
