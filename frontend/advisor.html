@@ -17,12 +17,16 @@
         button.secondary:hover:not(:disabled) { background: #444; }
         button:disabled { opacity: 0.35; cursor: not-allowed; }
         .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .period-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+        .period-options button { margin: 0; padding: 8px 12px; font-size: 0.9rem; }
+        .period-options button[aria-pressed="true"] { outline: 2px solid #baff75; outline-offset: 1px; }
         .hint { color: #aaa; font-size: 0.9rem; margin-top: 10px; }
         .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; background: #555; margin-bottom: 10px; }
         .badge.llm { background: #1fa855; }
-        .suggestion { background: #1f1f2e; border-left: 4px solid #00ff66; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
-        .suggestion strong { display: block; margin-bottom: 4px; }
+        .pattern { background: #1f1f2e; border-left: 4px solid #00ff66; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+        .pattern strong { display: block; margin-bottom: 4px; }
         .notice { background: #4a3b12; border: 1px solid #c9a227; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+        .critical-flag { background: #4a2026; border: 1px solid #e76d7a; padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
         .disclaimer { font-size: 0.85rem; color: #aaa; margin-top: 16px; }
         .meta { font-size: 0.85rem; color: #aaa; }
         .error { color: #ff6b78; }
@@ -31,25 +35,35 @@
 </head>
 <body>
 
-    <h1>Wellbeing Advisor</h1>
+    <h1>Pattern explorer</h1>
     <p id="advisor-back-link"><a href="/dashboard">&larr; Back to MoodPulse</a></p>
+    <p class="hint">
+        Observations describe the selected data only. They are not health advice or a diagnosis;
+        facial-expression labels do not establish how someone feels.
+    </p>
 
     <div class="dashboard">
         <div class="card">
-            <h3>Backend data</h3>
+            <h3>Data for this period</h3>
+            <div class="period-options" role="group" aria-label="Analysis time range">
+                <button type="button" data-minutes="1" aria-pressed="true">1 min</button>
+                <button type="button" data-minutes="15" aria-pressed="false">15 min</button>
+                <button type="button" data-minutes="60" aria-pressed="false">1 hour</button>
+                <button type="button" data-minutes="1440" aria-pressed="false">24 hours</button>
+            </div>
             <div id="data-box">Loading...</div>
             <h4>Your saved MoodPulse reflections</h4>
             <div id="journal-entries" class="meta">Loading saved reflections…</div>
             <div class="actions">
-                <button id="advice-btn" onclick="getAdvice()" disabled>Get advice</button>
+                <button id="advice-btn" onclick="getAdvice()" disabled>Find patterns</button>
                 <button id="reset-session-btn" class="secondary" onclick="resetSession()">Reset session data</button>
             </div>
             <div class="hint" id="hint"></div>
         </div>
 
         <div class="card">
-            <h3>Advice</h3>
-            <div id="advice-box">Press "Get advice" to generate suggestions from the data on the left.</div>
+            <h3>Observed patterns</h3>
+            <div id="advice-box">Choose a period, then select “Find patterns”.</div>
         </div>
     </div>
 
@@ -60,6 +74,10 @@
         const adviceBtn = document.getElementById('advice-btn');
         const resetSessionBtn = document.getElementById('reset-session-btn');
         const hint = document.getElementById('hint');
+        const periodOptions = document.querySelectorAll('.period-options button');
+        const validPeriods = [1, 15, 60, 1440];
+        const requestedMinutes = Number(new URLSearchParams(window.location.search).get('minutes'));
+        const storedMinutes = Number(sessionStorage.getItem('moodpulse_insights_minutes'));
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
         if (window.self !== window.top) {
@@ -69,7 +87,11 @@
         let latest = null;
         let latestReadings = [];
         let latestJournal = [];
-        let currentUser = null;
+        let latestSafetyJournal = [];
+        let selectedMinutes = validPeriods.includes(requestedMinutes)
+            ? requestedMinutes
+            : validPeriods.includes(storedMinutes) ? storedMinutes : 1;
+        let loadVersion = 0;
         let generating = false;
         let resetting = false;
         let elapsed = 0;
@@ -86,16 +108,62 @@
             return `${m}:${String(s).padStart(2, '0')}`;
         }
 
+        function periodLabel(minutes) {
+            return { 1: '1 minute', 15: '15 minutes', 60: '1 hour', 1440: '24 hours' }[minutes];
+        }
+
+        function selectPeriod(minutes, notifyParent) {
+            if (!validPeriods.includes(minutes) || minutes === selectedMinutes) return;
+            selectedMinutes = minutes;
+            sessionStorage.setItem('moodpulse_insights_minutes', String(minutes));
+            periodOptions.forEach(option =>
+                option.setAttribute('aria-pressed', String(Number(option.dataset.minutes) === minutes))
+            );
+            latest = null;
+            latestReadings = [];
+            latestJournal = [];
+            latestSafetyJournal = [];
+            dataBox.textContent = `Loading data from the last ${periodLabel(minutes)}...`;
+            adviceBox.textContent = 'Select “Find patterns” when the selected period data is ready.';
+            updateButton();
+            if (notifyParent && window.parent !== window) {
+                window.parent.postMessage(
+                    { type: 'moodpulse-period-selection', minutes },
+                    window.location.origin
+                );
+            }
+            void loadData();
+        }
+
+        periodOptions.forEach(button => {
+            button.addEventListener('click', () => {
+                selectPeriod(Number(button.dataset.minutes), true);
+            });
+        });
+
+        periodOptions.forEach(option =>
+            option.setAttribute('aria-pressed', String(Number(option.dataset.minutes) === selectedMinutes))
+        );
+
+        window.addEventListener('message', event => {
+            if (
+                event.origin !== window.location.origin
+                || event.source !== window.parent
+                || event.data?.type !== 'moodpulse-period'
+            ) return;
+            selectPeriod(Number(event.data.minutes), false);
+        });
+
         function dominantOf(d) {
-            if (d.dominant_emotion) return d.dominant_emotion;
+            if (d.dominant_label) return d.dominant_label;
             return Object.entries(d.summary).sort((a, b) => b[1] - a[1])[0][0];
         }
 
         function renderData(d) {
             dataBox.replaceChildren();
             const emotionCount = d ? d.total_records : 0;
-            if (emotionCount === 0 && latestReadings.length === 0) {
-                dataBox.textContent = "No data yet. Start a camera session or connect the bracelet on the scanner page.";
+            if (emotionCount === 0 && latestReadings.length === 0 && latestJournal.length === 0) {
+                dataBox.textContent = `No data in the last ${periodLabel(selectedMinutes)}. Choose a wider period or start a session.`;
                 return;
             }
             const line = (label, value) => {
@@ -108,40 +176,53 @@
                 const dom = dominantOf(d);
                 line('Session:', d.active ? 'running' : 'stopped');
                 line('Length:', fmtDuration(d.duration_seconds));
-                line('Emotion samples:', String(emotionCount));
-                line('Dominant emotion:', `${dom.toUpperCase()} (${d.summary[dom]}%)`);
+                line('Facial-expression samples:', String(emotionCount));
+                line('Most frequent facial-expression label:', `${dom.toUpperCase()} (${d.summary[dom]}%)`);
                 for (const [emotion, pct] of Object.entries(d.summary).sort((a, b) => b[1] - a[1])) {
                     line(emotion.toUpperCase() + ':', pct + '%');
                 }
             }
             const heartRates = latestReadings.filter(r => r.type === 'heart_rate');
-            const conductance = latestReadings.filter(r => r.type === 'skin_conductance');
             line('Heart-rate readings:', String(heartRates.length));
             const bufferedHeartRates = heartRates.filter(r => r.buffered === true).length;
             if (bufferedHeartRates) line('Likely buffered readings (uptime estimate):', String(bufferedHeartRates));
             if (heartRates.length) line('Latest heart rate:', `${heartRates[heartRates.length - 1].value} bpm`);
-            line('Skin-conductance readings:', String(conductance.length));
-            if (conductance.length) line('Latest skin conductance:', `${conductance[conductance.length - 1].value} uS`);
         }
 
-        async function loadJournalEntries(userId) {
-            const container = document.getElementById('journal-entries');
+        async function loadJournalEntries(minutes) {
             try {
                 const response = await fetch('/api/journal');
                 const data = await response.json();
                 if (!response.ok || data.status !== 'success') {
                     throw new Error(data.message || 'Could not load journal entries.');
                 }
-                latestJournal = (data.entries || []).filter(entry =>
-                    entry && entry.demo !== true &&
-                    typeof entry.note === 'string' &&
-                    entry.note.trim()
-                ).slice(0, 5);
+                const cutoff = Date.now() - minutes * 60 * 1000;
+                const validEntries = (data.entries || []).filter(entry => {
+                    if (!entry || entry.demo === true || typeof entry.note !== 'string' || !entry.note.trim()) {
+                        return false;
+                    }
+                    const createdAt = typeof entry.date === 'number'
+                        ? entry.date * 1000
+                        : Date.parse(entry.date);
+                    return Number.isFinite(createdAt);
+                });
+                return {
+                    selected: validEntries.filter(entry => {
+                        const createdAt = typeof entry.date === 'number'
+                            ? entry.date * 1000
+                            : Date.parse(entry.date);
+                        return createdAt >= cutoff;
+                    }).slice(0, 5),
+                    safety: validEntries.slice(0, 5)
+                };
             } catch (error) {
-                latestJournal = [];
                 console.error('Could not read saved MoodPulse reflections:', error);
+                return { selected: [], safety: [] };
             }
+        }
 
+        function renderJournalEntries() {
+            const container = document.getElementById('journal-entries');
             container.replaceChildren();
             if (latestJournal.length === 0) {
                 container.textContent = 'Save a journal reflection in MoodPulse to include it here.';
@@ -159,47 +240,49 @@
         function updateButton() {
             const n = latest ? latest.total_records : 0;
             const heartRateCount = latestReadings.filter(r => r.type === 'heart_rate').length;
-            const conductanceCount = latestReadings.filter(r => r.type === 'skin_conductance').length;
-            const enough = n >= MIN_SAMPLES || heartRateCount >= 5 || conductanceCount >= 5;
+            const enough = n >= MIN_SAMPLES || heartRateCount >= 5;
             const hasJournal = latestJournal.length > 0;
             adviceBtn.disabled = generating || resetting || (!enough && !hasJournal);
             resetSessionBtn.disabled = generating || resetting;
+            periodOptions.forEach(option => {
+                option.disabled = generating || resetting;
+            });
             if (resetting) {
                 hint.textContent = "Resetting session data...";
             } else if (generating) {
                 hint.textContent = `Generating... ${elapsed}s (this can take up to a minute)`;
             } else if (!enough && !hasJournal) {
-                hint.textContent = `Need ${MIN_SAMPLES} emotion samples, 5 readings from either sensor, or a saved MoodPulse reflection.`;
+                hint.textContent = `Need ${MIN_SAMPLES} emotion samples, 5 heart-rate readings, or a saved MoodPulse reflection.`;
             } else {
                 hint.textContent = "";
             }
         }
 
         async function loadData() {
+            const requestVersion = ++loadVersion;
+            const minutes = selectedMinutes;
             try {
-                if (!currentUser) {
-                    const userResponse = await fetch('/api/auth/me');
-                    const userData = await userResponse.json();
-                    if (!userResponse.ok || userData.status !== 'success') {
-                        throw new Error(userData.message || 'Authentication required.');
-                    }
-                    currentUser = userData.user;
-                }
                 const [emotionResponse, sensorResponse] = await Promise.all([
-                    fetch('/emotion-summary'),
-                    fetch('/api/sensors')
+                    fetch(`/emotion-summary?minutes=${minutes}`),
+                    fetch(`/api/sensors?minutes=${minutes}`)
                 ]);
                 const [d, sensors] = await Promise.all([emotionResponse.json(), sensorResponse.json()]);
                 if (!emotionResponse.ok || !sensorResponse.ok) {
                     throw new Error(d.message || sensors.message || 'Could not load your data.');
                 }
+                const journal = await loadJournalEntries(minutes);
+                if (requestVersion !== loadVersion) return;
                 latest = d.status === 'success' ? d : null;
                 latestReadings = sensors.status === 'success' ? sensors.readings || [] : [];
-                await loadJournalEntries(currentUser.id);
+                latestJournal = journal.selected;
+                latestSafetyJournal = journal.safety;
+                renderJournalEntries();
                 renderData(latest);
             } catch (e) {
+                if (requestVersion !== loadVersion) return;
                 dataBox.textContent = "Cannot reach the server.";
             }
+            if (requestVersion !== loadVersion) return;
             updateButton();
         }
 
@@ -238,43 +321,49 @@
             }
         }
 
-        function renderAdvice(data, snap) {
+        function renderPatterns(data, snap, minutes) {
             adviceBox.replaceChildren();
 
             const badge = el('span', data.source === 'llm' ? 'badge llm' : 'badge',
                 data.crisis_response ? 'Immediate safety response'
-                    : data.source === 'llm' ? `Written by the local AI model (${data.model})`
-                        : 'Built-in guidance (the AI model was not available)');
+                    : data.source === 'llm' ? `AI pattern summary (${data.model})`
+                        : 'Rule-based pattern summary (AI unavailable)');
             adviceBox.appendChild(badge);
             if (data.crisis_response) {
                 adviceBox.appendChild(el('div', 'meta', 'Triggered by the journal entry.'));
             } else {
-                const bufferedHeartRates = latestReadings.filter(
-                    r => r.type === 'heart_rate' && r.buffered === true
-                ).length;
-                const bufferedNote = bufferedHeartRates
-                    ? ` (${bufferedHeartRates} likely buffered, based on device uptime)`
-                    : '';
                 adviceBox.appendChild(el('div', 'meta',
-                    `Based on ${snap.total_records} expression samples, ${latestReadings.length} sensor readings${bufferedNote}, `
-                    + `${latestJournal.length} journal reflections over ${fmtDuration(snap.duration_seconds)}.`));
+                    `Selected period: last ${periodLabel(minutes)}. Based on ${snap.total_records} facial-expression samples, `
+                    + `${snap.reading_count} heart-rate readings, and ${snap.journal_count} journal reflections.`));
             }
 
             if (data.summary) adviceBox.appendChild(el('p', null, data.summary));
 
-            for (const s of data.suggestions || []) {
-                const box = el('div', 'suggestion');
-                box.appendChild(el('strong', null, s.title));
-                box.appendChild(document.createTextNode(s.advice));
+            for (const pattern of data.patterns || []) {
+                const box = el('div', 'pattern');
+                box.appendChild(el('strong', null, pattern.title));
+                box.appendChild(document.createTextNode(pattern.observation));
+                adviceBox.appendChild(box);
+            }
+
+            for (const flag of data.flags || []) {
+                adviceBox.appendChild(el('div', 'notice', flag));
+            }
+
+            for (const flag of data.critical_flags || []) {
+                const box = el('div', 'critical-flag');
+                box.appendChild(el('strong', null, flag.title));
+                box.appendChild(document.createTextNode(flag.text));
                 adviceBox.appendChild(box);
             }
 
             if (data.see_doctor) {
-                adviceBox.appendChild(el('div', 'notice', "Please consider talking to a professional about this."));
+                adviceBox.appendChild(el('div', 'notice',
+                    `Critical flag: ${data.see_doctor_reasons.join('; ')}.`));
             }
             adviceBox.appendChild(el('div', 'disclaimer', data.disclaimer || ''));
             if (data.duration_seconds !== undefined) {
-                adviceBox.appendChild(el('div', 'meta', `Generated in ${data.duration_seconds}s.`));
+                adviceBox.appendChild(el('div', 'meta', `Analysis generated in ${data.duration_seconds}s.`));
             }
         }
 
@@ -285,21 +374,28 @@
         async function getAdvice() {
             if (generating || resetting) return;
             const snap = latest || { summary: {}, total_records: 0, duration_seconds: 0 };
-            const hasEnoughSensorData = latestReadings.filter(r => r.type === 'heart_rate').length >= 5
-                || latestReadings.filter(r => r.type === 'skin_conductance').length >= 5;
+            const hasEnoughSensorData = latestReadings.filter(r => r.type === 'heart_rate').length >= 5;
             if (snap.total_records < MIN_SAMPLES && !hasEnoughSensorData && !latestJournal.length) return;
+            const minutes = selectedMinutes;
+            const snapshot = {
+                ...snap,
+                reading_count: latestReadings.length,
+                journal_count: latestJournal.length
+            };
             generating = true;
             elapsed = 0;
-            adviceBox.replaceChildren(el('div', null, "Generating advice..."));
+            adviceBox.replaceChildren(el('div', null, "Identifying patterns in the selected data..."));
             const timer = setInterval(() => { elapsed++; updateButton(); }, 1000);
             updateButton();
 
             try {
                 const payload = {
                     emotion_summary: snap.summary || {},
+                    emotion_sample_count: snap.total_records || 0,
                     readings: latestReadings,
-                    profile: currentUser,
-                    journal: latestJournal.map(entry => `${entry.mood || 'Reflection'}: ${entry.note}`)
+                    minutes,
+                    journal: latestJournal.map(entry => `${entry.mood || 'Reflection'}: ${entry.note}`),
+                    safety_journal: latestSafetyJournal.map(entry => `${entry.mood || 'Reflection'}: ${entry.note}`)
                 };
                 const res = await fetch('/api/advice', {
                     method: 'POST',
@@ -314,8 +410,8 @@
                         : `The server returned an unexpected answer (HTTP ${res.status}).`);
                 }
 
-                if (res.ok && data.status === 'success') renderAdvice(data, snap);
-                else renderError(data.message || "The server could not generate advice.");
+                if (res.ok && data.status === 'success') renderPatterns(data, snapshot, minutes);
+                else renderError(data.message || "The server could not describe patterns.");
             } catch (e) {
                 renderError(e instanceof TypeError
                     ? "Cannot reach the server. Try again in a moment."
