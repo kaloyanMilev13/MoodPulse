@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS public.measurements (
 CREATE TABLE IF NOT EXISTS readings (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id     BIGINT REFERENCES public.users(id),
-    type        TEXT             NOT NULL,   -- 'heart_rate' (or 'skin_conductance')
+    type        TEXT             NOT NULL,   -- 'heart_rate'
     value       DOUBLE PRECISION NOT NULL,   -- BPM for heart rate
     ts          DOUBLE PRECISION NOT NULL,   -- when it was received, seconds since 1970 (UTC)
     received_at TIMESTAMPTZ GENERATED ALWAYS AS (to_timestamp(ts)) STORED,  -- the same, readable
@@ -417,6 +417,8 @@ def add_readings(user_id, readings):
     """Store readings (dictionaries with type, value, ts and optional fields).
     Returns how many readings are stored in total."""
     global _memory_next_id
+    if any(reading.get("type") != "heart_rate" for reading in readings):
+        raise ValueError("Only heart-rate readings are supported.")
     if storage() == "memory":
         with _memory_lock:
             for r in readings:
@@ -434,7 +436,10 @@ def add_readings(user_id, readings):
                 _memory_readings.append(row)
             if len(_memory_readings) > MAX_MEMORY_READINGS:
                 del _memory_readings[:-MAX_MEMORY_READINGS]
-            return sum(r["user_id"] == user_id for r in _memory_readings)
+            return sum(
+                r["user_id"] == user_id and r["type"] == "heart_rate"
+                for r in _memory_readings
+            )
 
     rows = [(user_id, r["type"], r["value"], r["ts"],
              r.get("device_id"), r.get("sequence"), r.get("uptime_ms"),
@@ -448,7 +453,7 @@ def add_readings(user_id, readings):
                 " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 rows)
         return db.execute(
-            "SELECT COUNT(*) AS n FROM readings WHERE user_id = %s",
+            "SELECT COUNT(*) AS n FROM readings WHERE user_id = %s AND type = 'heart_rate'",
             (user_id,),
         ).fetchone()["n"]
 
@@ -458,10 +463,12 @@ def recent_readings(user_id, hours=24, limit=20000):
     if storage() == "memory":
         since = _since(hours)
         return [_as_dict(r) for r in _memory_select(
-            lambda r: r["user_id"] == user_id and r["ts"] >= since, limit)]
+            lambda r: r["user_id"] == user_id and r["type"] == "heart_rate"
+            and r["ts"] >= since, limit)]
     with connect() as db:
         rows = db.execute(
-            "SELECT * FROM (SELECT * FROM readings WHERE user_id = %s AND ts >= %s"
+            "SELECT * FROM (SELECT * FROM readings WHERE user_id = %s"
+            " AND type = 'heart_rate' AND ts >= %s"
             " ORDER BY ts DESC, id DESC LIMIT %s) AS recent ORDER BY ts, id",
             (user_id, _since(hours), limit)).fetchall()
     return [_as_dict(row) for row in rows]
