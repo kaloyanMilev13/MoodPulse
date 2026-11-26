@@ -44,8 +44,7 @@ app.register_blueprint(advice_bp)
 
 user_states = {}
 MAX_SENSOR_BATCH = 500
-SENSOR_TYPES = {"heart_rate", "skin_conductance"}
-SENSOR_RANGES = {"skin_conductance": (0.01, 100)}
+SENSOR_TYPES = {"heart_rate"}
 state_lock = threading.Lock()
 model_lock = threading.Lock()
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -62,12 +61,10 @@ password_hasher = PasswordHasher(
 DUMMY_PASSWORD_HASH = password_hasher.hash("moodpulse-dummy-password")
 PUBLIC_ENDPOINTS = {
     "login",
-    "health",
     "auth_signup",
     "auth_login",
-    "advice.advice_health",
-    "static",
 }
+PUBLIC_STATIC_PATHS = {"/bracelet.js"}
 
 NO_FACE = "No Face Detected"
 MULTI = "More than one person"
@@ -101,9 +98,9 @@ def enforce_login_and_same_origin():
         if not _same_origin_request():
             return jsonify({"status": "error", "message": "Request origin was rejected."}), 403
 
-    if request.endpoint in PUBLIC_ENDPOINTS and not (
-        request.endpoint == "static" and request.path == "/advisor.html"
-    ):
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if request.endpoint == "static" and request.path in PUBLIC_STATIC_PATHS:
         return None
 
     user_id = session.get("user_id")
@@ -515,7 +512,21 @@ def sensor_readings_route():
         return error
 
     if request.method == "GET":
-        readings = database.recent_readings(g.user_id, hours=24)
+        raw_minutes = request.args.get("minutes")
+        if raw_minutes is None:
+            hours = 24
+        else:
+            try:
+                minutes = int(raw_minutes)
+            except ValueError:
+                minutes = None
+            if minutes not in HISTORY_RANGES:
+                return jsonify({
+                    "status": "error",
+                    "message": f"minutes must be one of {list(HISTORY_RANGES)}",
+                }), 400
+            hours = minutes / 60
+        readings = database.recent_readings(g.user_id, hours=hours)
         return jsonify({"status": "success", "readings": readings})
 
     with state_lock:
@@ -549,17 +560,12 @@ def sensor_readings_route():
         if not math.isfinite(value) or not math.isfinite(timestamp):
             return jsonify({"status": "error", "message": f"Reading {index} values must be finite numbers"}), 400
 
-        if kind in SENSOR_RANGES:
-            low, high = SENSOR_RANGES[kind]
-            if not low <= value <= high:
-                return jsonify({"status": "error", "message": f"Reading {index} value is outside the allowed range for {kind}"}), 400
-
         accepted_reading = {"type": kind, "value": value, "ts": timestamp}
         metadata_ranges = {
             "device_id": (0, 0xFFFF),
             "sequence": (0, 0xFFFFFFFF),
             "uptime_ms": (0, 0xFFFFFFFF),
-            "battery": (0, 256), # change to 100 later
+            "battery": (0, 100), 
             "flags": (0, 0xFF),
         }
         for field, (minimum, maximum) in metadata_ranges.items():
@@ -710,19 +716,43 @@ def analyze_emotion():
 
 @app.route("/emotion-summary", methods=["GET"])
 def get_summary():
+    raw_minutes = request.args.get("minutes")
+    if raw_minutes is not None:
+        try:
+            minutes = int(raw_minutes)
+        except ValueError:
+            minutes = None
+        if minutes not in HISTORY_RANGES:
+            return jsonify({
+                "status": "error",
+                "message": f"minutes must be one of {list(HISTORY_RANGES)}",
+            }), 400
+        cutoff = time.time() - minutes * 60
+    else:
+        cutoff = None
+
     with state_lock:
         state = _user_state(g.user_id)
-        emotions = [log["emotion"] for log in state["logs"]]
+        emotions = [
+            log["emotion"] for log in state["logs"]
+            if cutoff is None or log["timestamp"] >= cutoff
+        ]
         info = session_info(state)
 
     if not emotions:
         return jsonify({"status": "success", "summary": {}, "total_records": 0, **info})
 
-    dominant_emotion = Counter(emotions).most_common(1)[0][0]
+    dominant_label = Counter(emotions).most_common(1)[0][0]
     total = len(emotions)
     counts = Counter(emotions)
     percentages = {e: round(c / total * 100, 1) for e, c in counts.items()}
-    return jsonify({"status": "success", "summary": percentages, "total_records": total, "dominant_emotion": dominant_emotion, **info})
+    return jsonify({
+        "status": "success",
+        "summary": percentages,
+        "total_records": total,
+        "dominant_label": dominant_label,
+        **info,
+    })
 
 
 @app.route("/reset-session", methods=["POST"])
